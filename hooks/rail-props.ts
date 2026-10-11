@@ -5,7 +5,8 @@ export type RailProps = {
   tools: { id: string; icon: string; short: string; badge?: { count: number; level: SidebarBadgeLevel } }[]
   switches: { id: string; short: string; isOn: boolean }[]
   selected: string | null
+  isOpen: boolean
 }
 
-/** What the rail posts on a left click: `tool:<id>` or `switch:<id>`. */
+/** What the rail posts on a left click: `handle` (draw in or out), `tool:<id>` or `switch:<id>`. */
 export type RailMessage = { press: string }

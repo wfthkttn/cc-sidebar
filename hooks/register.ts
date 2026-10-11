@@ -2,22 +2,14 @@ import type { On } from 'claude-code'
 
 import type { Sidebar, SidebarRail, SidebarTool } from '../types/index'
 import { ROW_COMPONENTS, Rows, drawerSlotKey, popoutSlotKey, rowKey } from './drawer'
+import { RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
 
-const PANE_ID = 'sidebar'
-/** The narrowest dock Claude Code 2.1.296 seats (DOCK_MIN_COLUMNS); a smaller request comes out this wide. */
-const RAIL_COLUMNS = 24
 const SHORT_MAX = 4
-/** The dock's border column and the blank column after it, left of the pane body. */
-const DOCK_EDGE_COLUMNS = 2
-/** Matches `COLORS.rail` in rail.ts. */
-const RAIL_BACKGROUND = '#000000'
 const DRAWER_BACKGROUND = '#11161f'
 const DRAWER_MIN_COLUMNS = 20
-/** A `UserMessage` row clips the transcript's last column, so an overlay hung from one ends a column short. */
-const OVERLAY_RIGHT_MARGIN = 1
 
-const EMPTY: SidebarRail = { tools: [], badges: {}, switches: [], selected: null }
+const EMPTY: SidebarRail = { tools: [], badges: {}, switches: [], selected: null, isOpen: true }
 
 /**
  * The rail kept twice: `$.state` survives a module reload but `/clear`,
@@ -27,8 +19,8 @@ const EMPTY: SidebarRail = { tools: [], badges: {}, switches: [], selected: null
 let rail: SidebarRail = EMPTY
 const transcript = new Rows()
 let placed = ''
-/** The dock body's rows as last drawn; null while the rail isn't docked. */
-let dockRows: number | null = null
+/** The terminal's rows and the band's room above the prompt, as the band last drew; null outside fullscreen. */
+let band: { rows: number; maxRows: number } | null = null
 /** Tools whose pop-out area is shown; tools say so again after a reload. */
 const popouts = new Set<string>()
 /** The drawer frame's rows around its slot: top border, title row, bottom border. */
@@ -40,10 +32,10 @@ function checkShort(what: string, short: string) {
   }
 }
 
-/** The transcript rows a drawer or pop-out can cover; null while the rail isn't docked. */
+/** The transcript's rows on screen; null outside fullscreen or before the band first draws. */
 function transcriptRows(): number | null {
-  // The dock's `✕` row stands beside the transcript's top row.
-  return dockRows === null ? null : dockRows + 1
+  // The bottom slot (band, prompt, footer) is capped at half the terminal; `maxRows` is what the prompt and footer leave of it.
+  return band === null ? null : band.rows - (Math.floor(band.rows / 2) - band.maxRows)
 }
 
 /** The open drawer's tool and width, or null when no drawer is open. */
@@ -135,13 +127,13 @@ export function register(on: On) {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     const kept = (await $.state.get({ plugin: 'sidebar', key: 'rail' })).value
-    if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = kept
+    // A rail kept by an older version has no `isOpen`.
+    if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = { ...EMPTY, ...kept }
     await $.command.register({
       name: 'sidebar',
-      description: 'Show the sidebar again after closing it',
+      description: 'Draw the sidebar out',
       immediate: true,
     })
-    await $.ui.open({ id: PANE_ID, title: 'Sidebar', columns: RAIL_COLUMNS })
     return started
   })
 
@@ -152,12 +144,20 @@ export function register(on: On) {
   })
 
   on('command.run', { command: 'sidebar' }, async $ => {
-    await $.ui.open({ id: PANE_ID, title: 'Sidebar', columns: RAIL_COLUMNS })
+    rail = { ...rail, isOpen: true }
+    await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+    $.ui.invalidate('ui.render')
     return {}
   })
 
   on('ui.message', { element: 'rail' }, async ($, e, next) => {
     const { press } = e.data as RailMessage
+    if (press === 'handle') {
+      rail = { ...rail, isOpen: !rail.isOpen }
+      await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+      $.ui.invalidate('ui.render')
+      return next(e)
+    }
     if (press.startsWith('tool:')) {
       const id = press.slice('tool:'.length)
       rail = { ...rail, selected: rail.selected === id ? null : id }
@@ -168,39 +168,14 @@ export function register(on: On) {
     return next(e)
   })
 
-  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
-    // The rail is a `Client`; only the terminal's element table is sure to have one.
-    if (e.requestId !== PANE_ID || e.surface !== 'terminal') return next(e)
-    const { Box, Client, Text } = $.ui.resolve(e)
-    const shown = (await $.state.get({ plugin: 'sidebar', key: 'rail' })).value ?? EMPTY
-    const props: RailProps = {
-      tools: shown.tools.map(tool => {
-        const badge = shown.badges[tool.id]
-        return badge ? { ...tool, badge: { count: badge.count, level: badge.level } } : { ...tool }
-      }),
-      switches: shown.switches,
-      selected: shown.selected,
-    }
-    const rows = e.props.placement === 'dock' ? e.props.scroll.bodyRows : undefined
-    if ((rows ?? null) !== dockRows) {
-      dockRows = rows ?? null
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.surface !== 'terminal') return next(e)
+    const now = e.viewport?.isFullscreen === true ? { rows: e.viewport.rows, maxRows: e.props.maxRows } : null
+    if (now?.rows !== band?.rows || now?.maxRows !== band?.maxRows) {
+      band = now
       $.ui.invalidate('ui.render')
     }
-    return Box({
-      children: [
-        Client({ key: 'rail', module: './rail.ts', props, width: e.props.bodyColumns, height: rows }),
-        // Paints over the dock's own border and gap, so the rail's drawn edge is the only one.
-        Box({
-          position: 'absolute',
-          top: 0,
-          left: -DOCK_EDGE_COLUMNS,
-          width: DOCK_EDGE_COLUMNS,
-          height: rows,
-          backgroundColor: RAIL_BACKGROUND,
-          children: [Text({ children: [' '] })],
-        }),
-      ],
-    })
+    return next(e)
   })
 
   on('ui.render', { component: [...ROW_COMPONENTS] }, async ($, e, next) => {
@@ -216,18 +191,36 @@ export function register(on: On) {
       placed = now
       $.ui.invalidate('ui.render')
     }
+    if (at === null || at.key !== key || e.viewport === undefined) return engine
     const open = openDrawer()
     const popped = poppedOut()
-    if (at === null || at.key !== key || e.viewport === undefined || (open === null && popped.length === 0)) return engine
 
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Button, Client, Text } = $.ui.resolve(e)
+    const props: RailProps = {
+      tools: rail.tools.map(tool => {
+        const badge = rail.badges[tool.id]
+        return badge ? { ...tool, badge: { count: badge.count, level: badge.level } } : { ...tool }
+      }),
+      switches: rail.switches,
+      selected: rail.selected,
+      isOpen: rail.isOpen,
+    }
+    const stripColumns = RAIL_COLUMNS
     // From the left: a row's own box can be as narrow as its content (a running Bash call's is).
-    const fromRight = (columns: number) => e.viewport!.columns - OVERLAY_RIGHT_MARGIN - columns
+    const stripLeft = e.viewport.columns - stripColumns
+    const leftOfStrip = (columns: number) => stripLeft - columns
     const popoutColumns = Math.max(0, ...popped.map(t => t.drawerColumns))
     return Box({
       flexDirection: 'column',
       children: [
         engine,
+        Box({
+          position: 'absolute',
+          top: at.top,
+          left: stripLeft,
+          width: stripColumns,
+          children: [Client({ key: 'rail', module: './rail.ts', props, width: stripColumns, height: railLayout(props).length })],
+        }),
         ...(open === null ? [] : [drawerFrame(open)]),
         ...(popped.length === 0
           ? []
@@ -235,7 +228,7 @@ export function register(on: On) {
               Box({
                 position: 'absolute',
                 top: at.top,
-                left: fromRight(popoutColumns),
+                left: leftOfStrip(popoutColumns),
                 width: popoutColumns,
                 flexDirection: 'column',
                 alignItems: 'flex-end',
@@ -249,7 +242,7 @@ export function register(on: On) {
       return Box({
         position: 'absolute',
         top: at!.top,
-        left: fromRight(open.columns),
+        left: leftOfStrip(open.columns),
         width: open.columns,
         flexDirection: 'column',
         borderStyle: 'round',

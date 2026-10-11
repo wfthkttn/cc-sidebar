@@ -61,7 +61,7 @@ export type Sidebar = {
   press(press: SidebarPress): Promise<void>
   /** Shows or hides the tool's pop-out area, next to the rail at the top; refused for a tool without `drawerColumns`. */
   popout(input: { id: string; isShown: boolean }): Promise<void>
-  /** The rows a drawer's slot and a pop-out area can fill; null while the rail isn't docked. */
+  /** The rows a drawer's slot and a pop-out area can fill; null outside fullscreen or before the transcript's height is known. */
   room(input: {}): Promise<{ drawer: number; popout: number } | null>
 }
 
@@ -71,6 +71,8 @@ export type SidebarRail = {
   badges: Record<string, SidebarBadge>
   switches: SidebarSwitch[]
   selected: string | null
+  /** The strip is drawn out (tabs shown) rather than in (only its folder tab). */
+  isOpen: boolean
 }
 
 declare module 'claude-code' {

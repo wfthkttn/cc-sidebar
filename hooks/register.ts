@@ -25,6 +25,12 @@ let band: { rows: number; maxRows: number } | null = null
 const popouts = new Set<string>()
 /** The drawer frame's rows around its slot: top border, title row, bottom border. */
 const DRAWER_FRAME_ROWS = 3
+/**
+ * In fullscreen the renderer moves a placed box that would start above the
+ * screen to its row 0, the transcript's top, whatever unhookable rows (logo,
+ * notices) sit above the anchor. Renderer behaviour the mod types don't promise.
+ */
+const VIEWPORT_TOP = -10000
 
 function checkShort(what: string, short: string) {
   if (short.length === 0 || short.length > SHORT_MAX) {
@@ -184,14 +190,12 @@ export function register(on: On) {
     if (e.surface !== 'terminal' || e.props.onScreen === undefined || e.requestId === 'placeholder') return engine
     const key = rowKey(e.component, e.requestId)
     transcript.see(key, e.props.onScreen)
-    const viewportRows = transcriptRows()
-    const at = viewportRows === null ? null : transcript.anchor(viewportRows)
-    const now = at === null ? '' : `${at.key}@${at.top}`
-    if (now !== placed) {
-      placed = now
+    const at = transcriptRows() === null ? null : transcript.anchor()
+    if ((at ?? '') !== placed) {
+      placed = at ?? ''
       $.ui.invalidate('ui.render')
     }
-    if (at === null || at.key !== key || e.viewport === undefined) return engine
+    if (at !== key || e.viewport === undefined) return engine
     const open = openDrawer()
     const popped = poppedOut()
 
@@ -216,7 +220,7 @@ export function register(on: On) {
         engine,
         Box({
           position: 'absolute',
-          top: at.top,
+          top: VIEWPORT_TOP,
           left: stripLeft,
           width: stripColumns,
           children: [Client({ key: 'rail', module: './rail.ts', props, width: stripColumns, height: railLayout(props).length })],
@@ -227,7 +231,7 @@ export function register(on: On) {
           : [
               Box({
                 position: 'absolute',
-                top: at.top,
+                top: VIEWPORT_TOP,
                 left: leftOfStrip(popoutColumns),
                 width: popoutColumns,
                 flexDirection: 'column',
@@ -241,7 +245,7 @@ export function register(on: On) {
     function drawerFrame(open: { tool: SidebarTool; columns: number }) {
       return Box({
         position: 'absolute',
-        top: at!.top,
+        top: VIEWPORT_TOP,
         left: leftOfStrip(open.columns),
         width: open.columns,
         flexDirection: 'column',

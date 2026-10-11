@@ -12,9 +12,6 @@ export const ROW_COMPONENTS = [
 
 export type OnScreen = { first: number; last: number; of: number }
 
-/** The row the drawer is drawn from, and the drawer's top relative to that row's top. */
-export type Anchor = { key: string; top: number }
-
 type Row = { order: number; onScreen: OnScreen | null }
 
 export class Rows {
@@ -31,23 +28,13 @@ export class Rows {
     this.rows.clear()
   }
 
-  /**
-   * The bottom row on screen, with the offset that puts the drawer's top at
-   * the viewport's top, `viewportRows` tall.
-   */
-  anchor(viewportRows: number): Anchor | null {
-    const visible = [...this.rows.entries()]
-      .filter((entry): entry is [string, { order: number; onScreen: OnScreen }] => entry[1].onScreen !== null)
-      .sort((a, b) => a[1].order - b[1].order)
-    const bottom = visible.at(-1)
-    if (bottom === undefined) return null
-    const [key, { onScreen }] = bottom
-    const overflows =
-      visible.length < this.rows.size || visible.some(([, row]) => row.onScreen.first > 0) || onScreen.last < onScreen.of - 1
-    // A transcript taller than the screen ends at its bottom edge; rows above, stale ones too, don't count.
-    if (overflows) return { key, top: onScreen.last - (viewportRows - 1) }
-    const above = visible.slice(0, -1).reduce((sum, [, row]) => sum + row.onScreen.last - row.onScreen.first + 1, 0)
-    return { key, top: onScreen.first - above }
+  /** The bottom row on screen: rows drawn after the overlays' row paint over them. */
+  anchor(): string | null {
+    let bottom: { key: string; order: number } | null = null
+    for (const [key, row] of this.rows) {
+      if (row.onScreen !== null && (bottom === null || row.order > bottom.order)) bottom = { key, order: row.order }
+    }
+    return bottom?.key ?? null
   }
 }
 

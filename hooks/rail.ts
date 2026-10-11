@@ -46,9 +46,10 @@ type Shown = Pick<RailProps, 'tools' | 'switches' | 'isOpen'>
 export function railLayout(props: Shown): RailRow[] {
   const rows: RailRow[] = BUTTON_PARTS.map(part => ({ kind: 'button', part }))
   if (!props.isOpen) return rows
-  for (const tool of props.tools) {
-    rows.push({ kind: 'blank' }, ...PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
-  }
+  props.tools.forEach((tool, index) => {
+    if (index > 0) rows.push({ kind: 'blank' })
+    rows.push(...PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
+  })
   if (props.switches.length > 0) rows.push({ kind: 'blank' })
   for (const sw of props.switches) rows.push({ kind: 'switch', id: sw.id })
   return rows

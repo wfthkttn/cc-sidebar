@@ -1,0 +1,6 @@
+{
+  "name": "sidebar-demo-tool",
+  "version": "0.1.0",
+  "description": "Example tool for the sidebar: three icons with badges and three switches",
+  "author": { "name": "alex" }
+}

@@ -1,0 +1,4 @@
+{
+  "description": "sidebar-demo-tool: registers example icons and switches",
+  "modules": ["./register.ts"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "sidebar",
+  "version": "0.1.0",
+  "description": "An always-on sidebar: tool icons with badges, and on/off switches at the bottom",
+  "author": { "name": "alex" },
+  "types": "./types/index.d.ts"
+}

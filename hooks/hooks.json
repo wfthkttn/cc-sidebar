@@ -1,4 +1,4 @@
 {
-  "description": "sidebar: $.sidebar and the docked rail",
+  "description": "sidebar: $.sidebar and the rail",
   "modules": ["./register.ts"]
 }

@@ -34,6 +34,10 @@ export function register(on: On) {
 
   on('command.run', { command: 'demo-badge' }, async ($, e) => {
     const [id, count, level] = e.args.trim().split(/\s+/)
+    if (id === undefined || id === '' || count === undefined) {
+      await $.ui.toast('Usage: /demo-badge <tool> <count> [info|attention|urgent]')
+      return {}
+    }
     await $.sidebar.badge({
       id,
       count: Number(count),

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { railLayout, targetAt } from '../hooks/rail'
+import { buttonBadge, railLayout, targetAt } from '../hooks/rail'
 
 const TOOLS = [
   { id: 'pass', icon: '🔐', short: 'pass', badge: { count: 3, level: 'urgent' as const } },
@@ -30,4 +30,15 @@ test('every row of the button and of a tab takes the click; blanks take none', a
   expect(targetAt(props, 15)).toEqual({ kind: 'switch', id: 'diff' })
   expect(targetAt(props, 40)).toBe(null)
   for (const y of [0, 4]) expect(targetAt({ ...props, isOpen: false }, y)).toEqual({ kind: 'button' })
+})
+
+test("the button's badge sums the tools' counts at the loudest level; none without badges", async () => {
+  const quiet = [
+    { id: 'a', icon: 'a', short: 'a', badge: { count: 2, level: 'info' as const } },
+    { id: 'b', icon: 'b', short: 'b', badge: { count: 1, level: 'attention' as const } },
+    { id: 'c', icon: 'c', short: 'c' },
+  ]
+  expect(buttonBadge(quiet)).toEqual({ count: 3, level: 'attention' })
+  expect(buttonBadge(TOOLS)).toEqual({ count: 3, level: 'urgent' })
+  expect(buttonBadge([{ id: 'c', icon: 'c', short: 'c' }])).toBe(undefined)
 })

@@ -1,41 +1,59 @@
-import type { On } from 'claude-code'
+import type { EngineInterface, On } from 'claude-code'
 
-import type { Sidebar, SidebarRail, SidebarTool } from '../types/index'
-import { ROW_COMPONENTS, Rows, drawerSlotKey, popoutSlotKey, rowKey } from './drawer'
+import type { Sidebar, SidebarDrawerSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
 import { RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
+import { ROW_COMPONENTS, Rows, rowKey } from './rows'
 
 const SHORT_MAX = 4
-const DRAWER_BACKGROUND = '#11161f'
 const DRAWER_MIN_COLUMNS = 20
-
+const DRAWER_BACKGROUND = '#11161f'
+const DRAWER_PADDING = 1
+/** Border and padding on both sides. */
+const DRAWER_FRAME_COLUMNS = 2 + 2 * DRAWER_PADDING
+/** Top border, title row, bottom border. */
+const DRAWER_FRAME_ROWS = 3
+/** Fullscreen moves a box placed above the screen to the transcript's top row; renderer behaviour the mod types don't promise. */
+const VIEWPORT_TOP = -10000
 const EMPTY: SidebarRail = { tools: [], badges: {}, switches: [], selected: null, isOpen: true }
 
+type DrawerTool = SidebarTool & { drawerColumns: number }
+
 /**
- * The rail kept twice: `$.state` survives a module reload but `/clear`,
- * `/resume` and `/branch` reset it; this variable survives those but not a
- * reload. Each restores the other, and tools register only once a session.
+ * Kept twice: `$.state` survives a module reload but not `/clear`, `/resume`
+ * or `/branch`; this variable the reverse. Each restores the other.
  */
 let rail: SidebarRail = EMPTY
 const transcript = new Rows()
-let placed = ''
+/** The row the overlays were last drawn from. */
+let placed: string | null = null
 /** The terminal's rows and the band's room above the prompt, as the band last drew; null outside fullscreen. */
 let band: { rows: number; maxRows: number } | null = null
 /** Tools whose pop-out area is shown; tools say so again after a reload. */
 const popouts = new Set<string>()
-/** The drawer frame's rows around its slot: top border, title row, bottom border. */
-const DRAWER_FRAME_ROWS = 3
-/**
- * In fullscreen the renderer moves a placed box that would start above the
- * screen to its row 0, the transcript's top, whatever unhookable rows (logo,
- * notices) sit above the anchor. Renderer behaviour the mod types don't promise.
- */
-const VIEWPORT_TOP = -10000
+
+async function save($: Pick<EngineInterface, 'state' | 'ui'>, edit: (now: SidebarRail) => SidebarRail) {
+  rail = edit(rail)
+  await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+  $.ui.invalidate('ui.render')
+}
+
+function upsert<T extends { id: string }>(list: T[], entry: T): T[] {
+  return list.some(item => item.id === entry.id) ? list.map(item => (item.id === entry.id ? entry : item)) : [...list, entry]
+}
 
 function checkShort(what: string, short: string) {
   if (short.length === 0 || short.length > SHORT_MAX) {
     throw new Error(`sidebar: ${what} short name "${short}" must be 1-${SHORT_MAX} characters`)
   }
+}
+
+function drawerSlotKey(toolId: string): SidebarDrawerSlot {
+  return `sidebar-drawer:${toolId}`
+}
+
+function popoutSlotKey(toolId: string): SidebarPopoutSlot {
+  return `sidebar-popout:${toolId}`
 }
 
 /** The transcript's rows on screen; null outside fullscreen or before the band first draws. */
@@ -44,28 +62,28 @@ function transcriptRows(): number | null {
   return band === null ? null : band.rows - (Math.floor(band.rows / 2) - band.maxRows)
 }
 
-/** The open drawer's tool and width, or null when no drawer is open. */
-function openDrawer(): { tool: SidebarTool; columns: number } | null {
+function hasDrawer(tool: SidebarTool): tool is DrawerTool {
+  return tool.drawerColumns !== undefined
+}
+
+function openDrawer(): DrawerTool | null {
   const tool = rail.tools.find(t => t.id === rail.selected)
-  if (tool?.drawerColumns === undefined || transcriptRows() === null) return null
-  return { tool, columns: tool.drawerColumns }
+  return tool !== undefined && hasDrawer(tool) ? tool : null
 }
 
 /** Tools with a pop-out shown, their drawer closed. */
-function poppedOut(): (SidebarTool & { drawerColumns: number })[] {
-  if (transcriptRows() === null) return []
-  return rail.tools.filter(
-    (t): t is SidebarTool & { drawerColumns: number } =>
-      popouts.has(t.id) && t.drawerColumns !== undefined && t.id !== rail.selected,
-  )
+function poppedOut(): DrawerTool[] {
+  return rail.tools.filter(hasDrawer).filter(t => popouts.has(t.id) && t.id !== rail.selected)
 }
 
 export function register(on: On) {
   on('engine.create', async (_$, e, next) => {
     const beneath = await next(e)
+    // `save` with `beneath` spelled out: the engine refuses next(e)'s value passed as an argument.
     const change = async (edit: (now: SidebarRail) => SidebarRail) => {
       rail = edit(rail)
       await beneath.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+      beneath.ui.invalidate('ui.render')
     }
     const sidebar: Sidebar = {
       register: async tool => {
@@ -75,16 +93,14 @@ export function register(on: On) {
           throw new Error(`sidebar: tool "${tool.id}" drawerColumns ${drawerColumns} must be an integer >= ${DRAWER_MIN_COLUMNS}`)
         }
         const entry = { id: tool.id, icon: tool.icon, short: tool.short, ...(drawerColumns === undefined ? {} : { drawerColumns }) }
-        await change(now => ({
-          ...now,
-          tools: now.tools.some(t => t.id === tool.id)
-            ? now.tools.map(t => (t.id === tool.id ? entry : t))
-            : [...now.tools, entry],
-        }))
+        await change(now => ({ ...now, tools: upsert(now.tools, entry) }))
       },
       badge: async badge => {
         if (!rail.tools.some(t => t.id === badge.id)) {
           throw new Error(`sidebar: badge for unregistered tool "${badge.id}"`)
+        }
+        if (!Number.isInteger(badge.count) || badge.count < 0) {
+          throw new Error(`sidebar: badge count ${badge.count} for "${badge.id}" must be a non-negative integer`)
         }
         await change(now => {
           const badges = { ...now.badges }
@@ -95,13 +111,7 @@ export function register(on: On) {
       },
       setSwitch: async sw => {
         checkShort(`switch "${sw.id}"`, sw.short)
-        const entry = { ...sw }
-        await change(now => ({
-          ...now,
-          switches: now.switches.some(s => s.id === sw.id)
-            ? now.switches.map(s => (s.id === sw.id ? entry : s))
-            : [...now.switches, entry],
-        }))
+        await change(now => ({ ...now, switches: upsert(now.switches, { ...sw }) }))
       },
       selected: async () => rail.selected,
       select: async ({ id }) => {
@@ -109,12 +119,11 @@ export function register(on: On) {
           throw new Error(`sidebar: select of unregistered tool "${id}"`)
         }
         await change(now => ({ ...now, selected: id }))
-        beneath.ui.invalidate('ui.render')
       },
       press: async () => {},
       popout: async ({ id, isShown }) => {
         const tool = rail.tools.find(t => t.id === id)
-        if (tool?.drawerColumns === undefined) {
+        if (tool === undefined || !hasDrawer(tool)) {
           throw new Error(`sidebar: pop-out for "${id}", which is no registered tool with a drawer`)
         }
         if (popouts.has(id) === isShown) return
@@ -124,7 +133,7 @@ export function register(on: On) {
       },
       room: async () => {
         const rows = transcriptRows()
-        return rows === null ? null : { drawer: rows - DRAWER_FRAME_ROWS, popout: rows }
+        return rows === null ? null : { drawer: rows - DRAWER_FRAME_ROWS, popout: rows, drawerFrameColumns: DRAWER_FRAME_COLUMNS }
       },
     }
     return { ...beneath, sidebar }
@@ -133,8 +142,7 @@ export function register(on: On) {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     const kept = (await $.state.get({ plugin: 'sidebar', key: 'rail' })).value
-    // A rail kept by an older version has no `isOpen`.
-    if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = { ...EMPTY, ...kept }
+    if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = kept
     await $.command.register({
       name: 'sidebar',
       description: 'Draw the sidebar out',
@@ -144,31 +152,25 @@ export function register(on: On) {
   })
 
   on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
-    await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+    await save($, now => now)
     transcript.clear()
     return next(e)
   })
 
   on('command.run', { command: 'sidebar' }, async $ => {
-    rail = { ...rail, isOpen: true }
-    await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
-    $.ui.invalidate('ui.render')
+    await save($, now => ({ ...now, isOpen: true }))
     return {}
   })
 
   on('ui.message', { element: 'rail' }, async ($, e, next) => {
     const { press } = e.data as RailMessage
-    if (press === 'handle') {
-      rail = { ...rail, isOpen: !rail.isOpen }
-      await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
-      $.ui.invalidate('ui.render')
+    if (press === 'toggle') {
+      await save($, now => ({ ...now, isOpen: !now.isOpen }))
       return next(e)
     }
     if (press.startsWith('tool:')) {
       const id = press.slice('tool:'.length)
-      rail = { ...rail, selected: rail.selected === id ? null : id }
-      await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
-      $.ui.invalidate('ui.render')
+      await save($, now => ({ ...now, selected: now.selected === id ? null : id }))
     }
     await $.sidebar.press({ element: press })
     return next(e)
@@ -189,10 +191,10 @@ export function register(on: On) {
     // A prompt's row while it is sent; a slash command's vanishes without reporting it left the screen.
     if (e.surface !== 'terminal' || e.props.onScreen === undefined || e.requestId === 'placeholder') return engine
     const key = rowKey(e.component, e.requestId)
-    transcript.see(key, e.props.onScreen)
+    transcript.see(key, e.props.onScreen !== null)
     const at = transcriptRows() === null ? null : transcript.anchor()
-    if ((at ?? '') !== placed) {
-      placed = at ?? ''
+    if (at !== placed) {
+      placed = at
       $.ui.invalidate('ui.render')
     }
     if (at !== key || e.viewport === undefined) return engine
@@ -201,18 +203,16 @@ export function register(on: On) {
 
     const { Box, Button, Client, Text } = $.ui.resolve(e)
     const props: RailProps = {
-      tools: rail.tools.map(tool => {
-        const badge = rail.badges[tool.id]
-        return badge ? { ...tool, badge: { count: badge.count, level: badge.level } } : { ...tool }
+      tools: rail.tools.map(({ id, icon, short }) => {
+        const badge = rail.badges[id]
+        return badge ? { id, icon, short, badge: { count: badge.count, level: badge.level } } : { id, icon, short }
       }),
       switches: rail.switches,
       selected: rail.selected,
       isOpen: rail.isOpen,
     }
-    const stripColumns = RAIL_COLUMNS
     // From the left: a row's own box can be as narrow as its content (a running Bash call's is).
-    const stripLeft = e.viewport.columns - stripColumns
-    const leftOfStrip = (columns: number) => stripLeft - columns
+    const stripLeft = e.viewport.columns - RAIL_COLUMNS
     const popoutColumns = Math.max(0, ...popped.map(t => t.drawerColumns))
     return Box({
       flexDirection: 'column',
@@ -222,8 +222,8 @@ export function register(on: On) {
           position: 'absolute',
           top: VIEWPORT_TOP,
           left: stripLeft,
-          width: stripColumns,
-          children: [Client({ key: 'rail', module: './rail.ts', props, width: stripColumns, height: railLayout(props).length })],
+          width: RAIL_COLUMNS,
+          children: [Client({ key: 'rail', module: './rail.ts', props, width: RAIL_COLUMNS, height: railLayout(props).length })],
         }),
         ...(open === null ? [] : [drawerFrame(open)]),
         ...(popped.length === 0
@@ -232,7 +232,7 @@ export function register(on: On) {
               Box({
                 position: 'absolute',
                 top: VIEWPORT_TOP,
-                left: leftOfStrip(popoutColumns),
+                left: stripLeft - popoutColumns,
                 width: popoutColumns,
                 flexDirection: 'column',
                 alignItems: 'flex-end',
@@ -242,35 +242,27 @@ export function register(on: On) {
       ],
     })
 
-    function drawerFrame(open: { tool: SidebarTool; columns: number }) {
+    function drawerFrame(tool: DrawerTool) {
       return Box({
         position: 'absolute',
         top: VIEWPORT_TOP,
-        left: leftOfStrip(open.columns),
-        width: open.columns,
+        left: stripLeft - tool.drawerColumns,
+        width: tool.drawerColumns,
         flexDirection: 'column',
         borderStyle: 'round',
         borderColor: 'claude',
         backgroundColor: DRAWER_BACKGROUND,
-        paddingX: 1,
+        paddingX: DRAWER_PADDING,
         children: [
           Box({
             flexDirection: 'row',
             justifyContent: 'space-between',
             children: [
-              Text({ bold: true, children: [`${open.tool.icon} ${open.tool.short}`] }),
-              Button({
-                key: 'drawer-close',
-                label: '✕',
-                onPress: async () => {
-                  rail = { ...rail, selected: null }
-                  await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
-                  $.ui.invalidate('ui.render')
-                },
-              }),
+              Text({ bold: true, children: [`${tool.icon} ${tool.short}`] }),
+              Button({ key: 'drawer-close', label: '✕', onPress: () => save($, now => ({ ...now, selected: null })) }),
             ],
           }),
-          Box({ key: drawerSlotKey(open.tool.id), flexDirection: 'column', children: [] }),
+          Box({ key: drawerSlotKey(tool.id), flexDirection: 'column', children: [] }),
         ],
       })
     }

@@ -1,6 +1,4 @@
-/**
- * How loudly a badge asks for attention.
- */
+/** How loudly a badge asks for attention. */
 export type SidebarBadgeLevel = 'info' | 'attention' | 'urgent'
 
 export type SidebarTool = {
@@ -10,22 +8,13 @@ export type SidebarTool = {
   icon: string
   /** 1-4 characters under the icon; a longer one is refused. */
   short: string
-  /**
-   * The width of the tool's drawer, frame included, and of its pop-out area;
-   * a tool without one has neither. While the tool is selected, one
-   * transcript row's render tree holds an empty Box keyed
-   * `sidebar-drawer:<id>`; while its pop-out is shown and its drawer closed,
-   * one keyed `sidebar-popout:<id>`. The tool, listing `sidebar` under
-   * `dependencies`, fills them in its own render hook on the transcript rows,
-   * from the tree `next(e)` returns. Both take the height of what fills them;
-   * `room` says how much there is.
-   */
+  /** The drawer's and pop-out area's width, frame included; an integer of at least 20, else refused. Without one the tool has neither. */
   drawerColumns?: number
 }
 
 export type SidebarBadge = {
   id: string
-  /** 0 clears the badge. */
+  /** A non-negative integer; 0 clears the badge. */
   count: number
   level: SidebarBadgeLevel
 }
@@ -33,7 +22,7 @@ export type SidebarBadge = {
 export type SidebarSwitch = {
   /** Unique across all switches; a press raises `sidebar.press` with `element: 'switch:<id>'`. */
   id: string
-  /** 1-4 characters, drawn as `● diff`; a longer one is refused. */
+  /** 1-4 characters, drawn as `● diff` (on) or `○ diff` (off); a longer one is refused. */
   short: string
   isOn: boolean
 }
@@ -43,10 +32,29 @@ export type SidebarPress = {
   element: string
 }
 
+/** The transcript rows the host draws its overlays from; a tool filling a slot hooks the same ones. */
+export type SidebarRowComponent =
+  | 'UserMessage'
+  | 'AssistantMessage'
+  | 'ToolUse'
+  | 'ToolResult'
+  | 'ToolGroup'
+  | 'CommandOutput'
+  | 'TurnDuration'
+  | 'InfoNotice'
+
+/** The key of the empty Box a tool's open drawer holds for the tool to fill. */
+export type SidebarDrawerSlot = `sidebar-drawer:${string}`
+/** The key of the empty Box a tool's shown pop-out area holds. */
+export type SidebarPopoutSlot = `sidebar-popout:${string}`
+
 /**
- * `$.sidebar`. A tool hears presses on its tab or switch by hooking the
- * `sidebar.press` event, which the rail raises:
+ * `$.sidebar`. A tool hears presses on its tab or switch by hooking `sidebar.press`:
  * `on('sidebar.press', async ($, e, next) => { if (e.element === 'tool:ask') ...; return next(e) })`.
+ *
+ * A tool with `drawerColumns` fills its slots (SidebarDrawerSlot, SidebarPopoutSlot) in its own
+ * `ui.render` hook on the SidebarRowComponent rows, from the tree `next(e)` returns; it lists
+ * `sidebar` under `dependencies`. A slot takes the height of what fills it; `room` says how much there is.
  */
 export type Sidebar = {
   register(tool: SidebarTool): Promise<void>
@@ -55,14 +63,17 @@ export type Sidebar = {
   setSwitch(sw: SidebarSwitch): Promise<void>
   /** The selected tool's id, or null. */
   selected(input: {}): Promise<string | null>
-  /** Selects a tool as a click on its tab would, or clears the selection with null. */
+  /** Selects a tool, opening its drawer, or clears the selection with null; raises no `sidebar.press`. */
   select(input: { id: string | null }): Promise<void>
   /** Raised by the rail on a click; calling it does nothing beyond the event. */
   press(press: SidebarPress): Promise<void>
-  /** Shows or hides the tool's pop-out area, next to the rail at the top; refused for a tool without `drawerColumns`. */
+  /** Shows or hides the tool's pop-out area at the top, left of the rail; refused for a tool without `drawerColumns`. */
   popout(input: { id: string; isShown: boolean }): Promise<void>
-  /** The rows a drawer's slot and a pop-out area can fill; null outside fullscreen or before the transcript's height is known. */
-  room(input: {}): Promise<{ drawer: number; popout: number } | null>
+  /**
+   * The rows a drawer's slot and a pop-out area can fill, and the columns the drawer's
+   * frame takes from `drawerColumns`; null outside fullscreen or before the transcript's height is known.
+   */
+  room(input: {}): Promise<{ drawer: number; popout: number; drawerFrameColumns: number } | null>
 }
 
 /** What the rail shows; the host's own `$.state`. */
@@ -71,7 +82,7 @@ export type SidebarRail = {
   badges: Record<string, SidebarBadge>
   switches: SidebarSwitch[]
   selected: string | null
-  /** The strip is drawn out (tabs shown) rather than in (only its folder tab). */
+  /** The strip is drawn out (tabs shown) rather than in (only its draw-in button). */
   isOpen: boolean
 }
 

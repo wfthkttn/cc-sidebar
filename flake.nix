@@ -8,15 +8,17 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
     in {
-      # the plugin directory alone, at share/sidebar: Claude Code loads the .ts as is
+      # the plugin directory alone, at share/sidebar/claude-code: Claude Code loads the .ts as is.
+      # One level down, so a system profile links the plugin as one directory: Claude Code refuses
+      # hooks that resolve outside the plugin directory, as per-file links into the store do.
       packages.${system}.default = pkgs.stdenvNoCC.mkDerivation {
         pname = "sidebar";
         version = "0.1.0";
         src = self;
         dontBuild = true;
         installPhase = ''
-          mkdir -p $out/share/sidebar
-          cp -r .claude-plugin hooks types $out/share/sidebar/
+          mkdir -p $out/share/sidebar/claude-code
+          cp -r .claude-plugin hooks types $out/share/sidebar/claude-code/
         '';
       };
     };

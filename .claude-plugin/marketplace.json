@@ -1,0 +1,12 @@
+{
+  "name": "wfthkttn",
+  "owner": { "name": "wfthkttn" },
+  "description": "An always-on Claude Code sidebar that other plugins put their tools on",
+  "plugins": [
+    {
+      "name": "sidebar",
+      "source": ".",
+      "description": "An always-on sidebar: tool icons with badges, and on/off switches at the bottom"
+    }
+  ]
+}

@@ -4,6 +4,8 @@ An always-on sidebar for Claude Code that other plugins put their tools on: a st
 the right edge of the transcript, on/off switches under them, and for a tool that wants one, a drawer it fills with
 its own panel and a pop-out area for things that can't wait.
 
+![examples/demo-tool on the strip: badges, a switch clicked on, a badge raised](docs/demo.gif)
+
 It's a Claude Code mod with no tools of its own. [secrets](https://github.com/wfthkttn/claude-secrets) is built on it.
 
 Provided as is.

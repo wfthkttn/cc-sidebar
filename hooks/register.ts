@@ -226,6 +226,8 @@ export function register(on: On) {
   })
 
   on('command.run', { command: 'sidebar' }, async $ => {
+    // The redraw `save` asks for has every drawn row report again, so the overlays land on a row that is drawn.
+    transcript.forget()
     await save($, ({ isHidden, ...now }) => (isHidden === true ? { ...now, isOpen: true } : { ...now, isHidden: true }))
     return {}
   })

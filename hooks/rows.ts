@@ -25,6 +25,11 @@ export class Rows {
     this.rows.clear()
   }
 
+  /** Every row counts as off screen until it is seen again: a row that left without reporting it no longer takes the anchor. */
+  forget() {
+    for (const row of this.rows.values()) row.isOnScreen = false
+  }
+
   isOnScreen(key: string): boolean {
     return this.rows.get(key)?.isOnScreen === true
   }

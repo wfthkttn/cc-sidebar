@@ -32,6 +32,18 @@ test('a redrawn row keeps the order it was first seen in', async () => {
   expect(rows.anchor()).toBe('AssistantMessage:m')
 })
 
+test('forgotten rows give no anchor until seen again, and keep their order', async () => {
+  const rows = new Rows()
+  rows.see('UserMessage:u', true)
+  rows.see('AssistantMessage:gone', true)
+  rows.forget()
+  expect(rows.anchor()).toBe(null)
+  rows.see('UserMessage:u', true)
+  expect(rows.anchor()).toBe('UserMessage:u')
+  rows.see('AssistantMessage:gone', true)
+  expect(rows.anchor()).toBe('AssistantMessage:gone')
+})
+
 test('a row is on screen as it was last seen', async () => {
   const rows = new Rows()
   rows.see('UserMessage:u', true)

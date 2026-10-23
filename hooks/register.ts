@@ -1,6 +1,6 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import type { Sidebar, SidebarDrawerSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
+import type { Sidebar, SidebarDrawerSlot, SidebarModalSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
 import { GAUGE_COLUMNS_MAX, inOrder, RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
 import { ROW_COMPONENTS, Rows, rowKey } from './rows'
@@ -15,6 +15,12 @@ const DRAWER_FRAME_COLUMNS = 2 + 2 * DRAWER_PADDING
 const DRAWER_FRAME_ROWS = 3
 /** Fullscreen moves a box placed above the screen to the transcript's top row; renderer behaviour the mod types don't promise. */
 const VIEWPORT_TOP = -10000
+/** A modal's widest, frame included: a page of prose reads in about this. */
+const MODAL_MAX_COLUMNS = 104
+/** Kept clear of the screen's left edge and of the rail on each side of a modal. */
+const MODAL_MARGIN = 2
+/** Top and bottom border. */
+const MODAL_FRAME_ROWS = 2
 const EMPTY: SidebarRail = { tools: [], badges: {}, switches: [], selected: null, isOpen: true }
 
 type DrawerTool = SidebarTool & { drawerColumns: number }
@@ -30,10 +36,12 @@ let isRestored = false
 const transcript = new Rows()
 /** The row the overlays were last drawn from. */
 let placed: string | null = null
-/** The terminal's rows and the band's room above the prompt, as the band last drew; null outside fullscreen. */
-let band: { rows: number; maxRows: number } | null = null
+/** The terminal's rows and columns and the band's room above the prompt, as the band last drew; null outside fullscreen. */
+let band: { rows: number; columns: number; maxRows: number } | null = null
 /** Tools whose pop-out area is shown; tools say so again after a reload. */
 const popouts = new Set<string>()
+/** The tool whose modal is shown; it says so again after a reload. */
+let modal: string | null = null
 type Hold = { row: string; tools: ReadonlySet<string> }
 /** The row the overlays stay on while a tool holds them, besides the anchor (`$.sidebar.hold`), and the tools holding. */
 let held: Hold | null = null
@@ -71,6 +79,10 @@ function popoutSlotKey(toolId: string): SidebarPopoutSlot {
   return `sidebar-popout:${toolId}`
 }
 
+function modalSlotKey(toolId: string): SidebarModalSlot {
+  return `sidebar-modal:${toolId}`
+}
+
 /** The transcript's rows on screen; null outside fullscreen or before the band first draws. */
 function transcriptRows(): number | null {
   // The bottom slot (band, prompt, footer) is capped at half the terminal; `maxRows` is what the prompt and footer leave of it.
@@ -90,6 +102,11 @@ function withoutTool(hold: Hold, id: string): Hold | null {
   const tools = new Set(hold.tools)
   tools.delete(id)
   return tools.size === 0 ? null : { row: hold.row, tools }
+}
+
+/** A modal's width, frame included: as wide as the screen left of the rail allows, up to `MODAL_MAX_COLUMNS`. */
+function modalColumns(screenColumns: number): number {
+  return Math.max(DRAWER_MIN_COLUMNS, Math.min(MODAL_MAX_COLUMNS, screenColumns - RAIL_COLUMNS - 2 * MODAL_MARGIN))
 }
 
 /** Tools with a pop-out shown, their drawer closed. */
@@ -180,9 +197,18 @@ export function register(on: On) {
         else popouts.delete(id)
         beneath.ui.invalidate('ui.render')
       },
+      modal: async ({ id, isShown }) => {
+        if (!rail.tools.some(t => t.id === id)) throw new Error(`sidebar: modal for unregistered tool "${id}"`)
+        const shown = isShown ? id : modal === id ? null : modal
+        if (shown === modal) return
+        modal = shown
+        beneath.ui.invalidate('ui.render')
+      },
       room: async () => {
         const rows = transcriptRows()
-        return rows === null ? null : { drawer: rows - DRAWER_FRAME_ROWS, popout: rows, drawerFrameColumns: DRAWER_FRAME_COLUMNS }
+        if (rows === null || band === null) return null
+        const modalRoom = { rows: rows - MODAL_FRAME_ROWS, columns: modalColumns(band.columns) - DRAWER_FRAME_COLUMNS }
+        return { drawer: rows - DRAWER_FRAME_ROWS, popout: rows, drawerFrameColumns: DRAWER_FRAME_COLUMNS, modal: modalRoom }
       },
       hold: async ({ id, isHeld }) => {
         if (!rail.tools.some(t => t.id === id)) {
@@ -248,8 +274,8 @@ export function register(on: On) {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
-    const now = e.viewport?.isFullscreen === true ? { rows: e.viewport.rows, maxRows: e.props.maxRows } : null
-    if (now?.rows !== band?.rows || now?.maxRows !== band?.maxRows) {
+    const now = e.viewport?.isFullscreen === true ? { rows: e.viewport.rows, columns: e.viewport.columns, maxRows: e.props.maxRows } : null
+    if (now?.rows !== band?.rows || now?.columns !== band?.columns || now?.maxRows !== band?.maxRows) {
       band = now
       $.ui.invalidate('ui.render')
     }
@@ -272,7 +298,7 @@ export function register(on: On) {
     if (held !== null) {
       let kept: Hold | null = held
       for (const id of held.tools) {
-        if (kept !== null && rail.selected !== id && !popouts.has(id)) kept = withoutTool(kept, id)
+        if (kept !== null && rail.selected !== id && !popouts.has(id) && modal !== id) kept = withoutTool(kept, id)
       }
       if (kept !== null && !transcript.isOnScreen(kept.row)) kept = null
       if (kept !== held) {
@@ -287,6 +313,7 @@ export function register(on: On) {
     // Drawn in, the strip keeps its drawer and pop-outs out of sight; drawn out again, they are back as they were.
     const open = rail.isOpen ? openDrawer() : null
     const popped = rail.isOpen ? poppedOut() : []
+    const modalTool = rail.isOpen && modal !== null ? (rail.tools.find(t => t.id === modal) ?? null) : null
 
     const { Box, Button, Client, Text } = $.ui.resolve(e)
     const props: RailProps = {
@@ -333,8 +360,26 @@ export function register(on: On) {
                 children: popped.map(t => Box({ key: popoutSlotKey(t.id), width: t.drawerColumns, flexDirection: 'column', children: [] })),
               }),
             ]),
+        ...(modalTool === null ? [] : [modalFrame(modalTool)]),
       ],
     })
+
+    /** Last in the tree, so it draws over the drawer and the pop-outs. */
+    function modalFrame(tool: SidebarTool) {
+      const width = modalColumns(e.viewport!.columns)
+      return Box({
+        position: 'absolute',
+        top: VIEWPORT_TOP,
+        left: Math.max(MODAL_MARGIN, Math.floor((stripLeft - width) / 2)),
+        width,
+        flexDirection: 'column',
+        borderStyle: 'round',
+        borderColor: 'claude',
+        backgroundColor: DRAWER_BACKGROUND,
+        paddingX: DRAWER_PADDING,
+        children: [Box({ key: modalSlotKey(tool.id), flexDirection: 'column', children: [] })],
+      })
+    }
 
     function drawerFrame(tool: DrawerTool) {
       return Box({

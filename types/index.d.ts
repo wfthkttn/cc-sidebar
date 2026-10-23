@@ -64,6 +64,8 @@ export type SidebarRowComponent =
 export type SidebarDrawerSlot = `sidebar-drawer:${string}`
 /** The key of the empty Box a tool's shown pop-out area holds. */
 export type SidebarPopoutSlot = `sidebar-popout:${string}`
+/** The key of the empty Box a tool's shown modal holds. */
+export type SidebarModalSlot = `sidebar-modal:${string}`
 
 /**
  * `$.sidebar`. A tool hears presses on its tab or switch by hooking `sidebar.press`:
@@ -90,13 +92,22 @@ export type Sidebar = {
   select(input: { id: string | null }): Promise<void>
   /** Raised by the rail on a click; calling it does nothing beyond the event. */
   press(press: SidebarPress): Promise<void>
-  /** Shows or hides the tool's pop-out area at the top, left of the rail; refused for a tool without `drawerColumns`. */
+  /**
+   * Shows or hides the tool's pop-out area at the top, left of the rail, drawn while the tool's drawer is closed;
+   * refused for a tool without `drawerColumns`.
+   */
   popout(input: { id: string; isShown: boolean }): Promise<void>
   /**
-   * The rows a drawer's slot and a pop-out area can fill, and the columns the drawer's
-   * frame takes from `drawerColumns`; null outside fullscreen or before the transcript's height is known.
+   * Shows or hides the tool's modal: a framed box at the top of the transcript, centred left of the rail and as wide as
+   * `room().modal.columns` lets it be, drawn over the transcript and any drawer. One at a time: showing one hides the
+   * one shown before. Refused for an unregistered tool.
    */
-  room(input: {}): Promise<{ drawer: number; popout: number; drawerFrameColumns: number } | null>
+  modal(input: { id: string; isShown: boolean }): Promise<void>
+  /**
+   * The rows a drawer's slot and a pop-out area can fill, the columns the drawer's frame takes from `drawerColumns`,
+   * and the rows and columns inside a modal's frame; null outside fullscreen or before the transcript's size is known.
+   */
+  room(input: {}): Promise<{ drawer: number; popout: number; drawerFrameColumns: number; modal: { rows: number; columns: number } } | null>
   /**
    * `isHeld: true` keeps the overlays drawn on the row they are on now, as well as on the newest row: a `Client` in a
    * slot that the person gave the keyboard stays the same instance, so the keys stay with it. The newest row's copy

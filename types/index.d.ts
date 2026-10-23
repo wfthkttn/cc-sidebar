@@ -10,10 +10,18 @@ export type SidebarTool = {
   short: string
   /** The drawer's and pop-out area's width, frame included; an integer of at least 20, else refused. Without one the tool has neither. */
   drawerColumns?: number
-  /** No tab on the strip: the tool shows through its corner and its pop-out alone. */
-  hasTab?: false
-  /** A slot of this size at the bottom right of the transcript, above the prompt, with no background of its own; positive integers, else refused. */
-  corner?: { columns: number; rows: number }
+}
+
+/** One column pair of a tool's gauge: two bars, each a percent left, filled from the bottom; red at 10 or below. */
+export type SidebarGaugeColumn = {
+  /** One character under the pair. */
+  letter: string
+  /** The left and right bar's colors, as Text's `color` takes them; the letter takes the left one. */
+  colors: [string, string]
+  /** The left and right bar; null leaves one empty. */
+  values: [number | null, number | null]
+  /** Drawn dim with `?` for the letter: the values are old or missing. */
+  isDim: boolean
 }
 
 export type SidebarBadge = {
@@ -51,20 +59,23 @@ export type SidebarRowComponent =
 export type SidebarDrawerSlot = `sidebar-drawer:${string}`
 /** The key of the empty Box a tool's shown pop-out area holds. */
 export type SidebarPopoutSlot = `sidebar-popout:${string}`
-/** The key of the empty Box a tool's corner holds. */
-export type SidebarCornerSlot = `sidebar-corner:${string}`
 
 /**
  * `$.sidebar`. A tool hears presses on its tab or switch by hooking `sidebar.press`:
  * `on('sidebar.press', async ($, e, next) => { if (e.element === 'tool:ask') ...; return next(e) })`.
  *
- * A tool with `drawerColumns` or `corner` fills its slots (SidebarDrawerSlot, SidebarPopoutSlot, SidebarCornerSlot) in its own
+ * A tool with `drawerColumns` fills its slots (SidebarDrawerSlot, SidebarPopoutSlot) in its own
  * `ui.render` hook on the SidebarRowComponent rows, from the tree `next(e)` returns; it lists
  * `sidebar` under `dependencies`. A slot takes the height of what fills it; `room` says how much there is.
  */
 export type Sidebar = {
   register(tool: SidebarTool): Promise<void>
   badge(badge: SidebarBadge): Promise<void>
+  /**
+   * Draws the tool's tab as a bracket of bars, 3 rows tall, with each column's letter under its pair. At most 3
+   * columns fit, and values run 0 to 100, else refused; null draws the icon again.
+   */
+  gauge(input: { id: string; columns: SidebarGaugeColumn[] | null }): Promise<void>
   /** Adds the switch, or updates its label and state. */
   setSwitch(sw: SidebarSwitch): Promise<void>
   /** The selected tool's id, or null. */
@@ -99,11 +110,13 @@ export type Sidebar = {
 export type SidebarRail = {
   tools: SidebarTool[]
   badges: Record<string, SidebarBadge>
+  /** Absent in a rail kept before gauges existed. */
+  gauges?: Record<string, SidebarGaugeColumn[]>
   switches: SidebarSwitch[]
   selected: string | null
   /** The strip is drawn out (tabs shown) rather than in (only its draw-in button). */
   isOpen: boolean
-  /** `/sidebar` hid it: nothing is drawn but pop-outs; corners hide too. */
+  /** `/sidebar` hid it: nothing is drawn, pop-outs included, until it is shown again. */
   isHidden?: true
 }
 

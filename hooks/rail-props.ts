@@ -1,10 +1,10 @@
-import type { SidebarBadge, SidebarSwitch, SidebarTool } from '../types/index'
+import type { SidebarBadge, SidebarGaugeColumn, SidebarSwitch, SidebarTool } from '../types/index'
 
 export type RailBadge = Pick<SidebarBadge, 'count' | 'level'>
 
 /** What the host hands the rail `Client`: plain data, redrawn on every change. */
 export type RailProps = {
-  tools: (Pick<SidebarTool, 'id' | 'icon' | 'short'> & { badge?: RailBadge })[]
+  tools: (Pick<SidebarTool, 'id' | 'icon' | 'short'> & { badge?: RailBadge; gauge?: SidebarGaugeColumn[] })[]
   switches: SidebarSwitch[]
   selected: string | null
   isOpen: boolean

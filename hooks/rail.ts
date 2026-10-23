@@ -1,6 +1,6 @@
 import type { ClientModule } from 'claude-code'
 
-import type { SidebarBadgeLevel } from '../types/index'
+import type { SidebarBadgeLevel, SidebarGaugeColumn } from '../types/index'
 import type { RailBadge, RailProps } from './rail-props'
 
 /** Inner columns of a tab: with its two inner rows, about square on screen. */
@@ -27,6 +27,12 @@ const COLORS = {
   switchOnText: '#f0fff6',
   switchOffText: '#9aa1ad',
 }
+const GAUGE_BRACKET = '#6b7280'
+const GAUGE_LOW = '#ef5350'
+/** A bar this low or lower is drawn red. */
+const GAUGE_LOW_FROM = 10
+/** Bracket, then two cells per column, inside the strip. */
+export const GAUGE_COLUMNS_MAX = Math.floor((TAB_COLUMNS - 1) / 2)
 /** Quietest first. */
 const LEVELS: readonly SidebarBadgeLevel[] = ['info', 'attention', 'urgent']
 const LEVEL_COLORS: Record<SidebarBadgeLevel, string> = { info: '#5b9bf0', attention: '#f2b134', urgent: '#ef5350' }
@@ -73,6 +79,15 @@ export function buttonBadge(tools: RailProps['tools']): RailBadge | undefined {
     count: badges.reduce((sum, b) => sum + b.count, 0),
     level: LEVELS[Math.max(...badges.map(b => LEVELS.indexOf(b.level)))]!,
   }
+}
+
+const EIGHTHS = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+
+/** A bar `rows` cells tall filled from the bottom, top cell first; 0 is blank, anything above shows at least an eighth. */
+export function barCells(percent: number, rows: number): string[] {
+  const steps = rows * 8
+  const level = percent <= 0 ? 0 : Math.max(1, Math.min(steps, Math.round((percent / 100) * steps)))
+  return Array.from({ length: rows }, (_, i) => EIGHTHS[Math.max(0, Math.min(8, level - (rows - 1 - i) * 8))]!)
 }
 
 function countText(count: number): string {
@@ -151,6 +166,35 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
     }
   }
 
+  /** A gauge takes a tab's rows: bars in all but the last, the letters in that. */
+  const gaugeRow = (columns: SidebarGaugeColumn[], index: number) => {
+    const barRows = TAB_PARTS.length - 1
+    const pad = Text({ children: [' '.repeat(TAB_COLUMNS - 1 - 2 * columns.length)] })
+    if (index === barRows) {
+      return Text({
+        children: [
+          Text({ color: GAUGE_BRACKET, children: ['└'] }),
+          ...columns.map(c => Text({ color: c.colors[0], bold: true, dimColor: c.isDim, children: [(c.isDim ? '?' : c.letter) + ' '] })),
+          pad,
+        ],
+      })
+    }
+    return Text({
+      children: [
+        Text({ color: GAUGE_BRACKET, children: [index === 0 ? '┌' : '│'] }),
+        ...columns.flatMap(c =>
+          c.values.map((value, bar) => {
+            // Nothing left still shows, as a red sliver: blank is for no value.
+            const cells = barCells(value === null ? 0 : Math.max(value, 0.1), barRows)
+            const color = value !== null && value <= GAUGE_LOW_FROM ? GAUGE_LOW : c.colors[bar]!
+            return Text({ color, dimColor: c.isDim, children: [cells[index]!] })
+          }),
+        ),
+        pad,
+      ],
+    })
+  }
+
   const rows = railLayout(props).map(row => {
     switch (row.kind) {
       case 'blank':
@@ -165,6 +209,7 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
       }
       case 'tab': {
         const tool = toolsById.get(row.id)!
+        if (tool.gauge !== undefined) return gaugeRow(tool.gauge, TAB_PARTS.indexOf(row.part))
         const look = tabLook(row.id)
         if (row.part === 'top') return topBorder(look, tool.badge)
         if (row.part === 'bottom') return frame('bottom', look, [rule(look)])

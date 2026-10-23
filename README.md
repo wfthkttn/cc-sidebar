@@ -40,8 +40,8 @@ environment.pathsToLink = [ "/share/sidebar" ];
 
 and the directory to list is `/run/current-system/sw/share/sidebar/claude-code`.
 
-`/sidebar` hides the sidebar, strip and drawer, until you run it again; a tool's pop-out still shows while it's
-hidden.
+`/sidebar` hides the sidebar, strip, drawer and pop-outs, until you run it again, which brings them back as they
+were.
 
 ## Put a tool on it
 
@@ -75,12 +75,12 @@ an empty `Box` keyed `sidebar-drawer:<id>` or `sidebar-popout:<id>`. Fill it in 
 transcript row components (`SidebarRowComponent`), in the tree `next(e)` returns; `$.sidebar.room({})` says how many
 rows the drawer and the pop-out have, and how many columns the drawer's frame takes.
 
-### A corner
+### A gauge
 
-Register with `corner: { columns, rows }` and the tool gets an empty `Box` keyed `sidebar-corner:<id>` at the bottom
-right of the transcript, just above the prompt, filled the same way. Nothing in the corner has a background, so the
-transcript shows wherever you draw nothing. With `hasTab: false` the tool gets no tab on the strip and lives in its
-corner and pop-out alone.
+`$.sidebar.gauge({ id, columns })` draws the tool's tab as a bracket of bars, 3 rows tall: up to 3 columns, each a
+pair of bars (percent left, 0-100, filled from the bottom, red at 10 or below), each in its own color, over its
+letter in the left one's. `isDim`
+draws a column dim with `?` for its letter. `columns: null` draws the icon again. A press on it is a press on the tab.
 
 ## Things a tool author should know
 

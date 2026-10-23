@@ -157,6 +157,7 @@ export function register(on: On) {
           held = now
           beneath.ui.invalidate('ui.render')
         }
+        beneath.ui.log(`trace hold ${id} ${isHeld} anchor=${at} held=${held?.row ?? 'none'}`, { to: 'debug' })
       },
       mirrored: async ({ component, requestId }) => {
         const at = transcript.anchor()
@@ -222,6 +223,7 @@ export function register(on: On) {
     transcript.see(key, e.props.onScreen !== null)
     const at = transcriptRows() === null ? null : transcript.anchor()
     if (at !== placed) {
+      $.ui.log(`trace anchor ${placed} -> ${at}`, { to: 'debug' })
       placed = at
       $.ui.invalidate('ui.render')
     }
@@ -232,6 +234,7 @@ export function register(on: On) {
       }
       if (kept !== null && !transcript.isOnScreen(kept.row)) kept = null
       if (kept !== held) {
+        $.ui.log(`trace hold dropped on ${held.row}: ${kept === null ? 'drawer closed or row off screen' : 'a tool closed'}`, { to: 'debug' })
         held = kept
         $.ui.invalidate('ui.render')
       }

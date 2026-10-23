@@ -44,11 +44,11 @@ test('gauge bars fill from the bottom in eighths; anything above 0 shows', async
   expect(barCells(100, 3)).toEqual(['█', '█', '█'])
 })
 
-test('a gauge takes a tab\'s rows and a click on it is a click on the tab; 3 columns fit beside the bracket', async () => {
+test('a gauge is a framed tab of 5 rows, its 3 bar rows inside, and a click on it is a click on the tab; 3 columns fit', async () => {
   const gauge = [{ letter: 'C', colors: ['#d97757', '#8f4a35'] as [string, string], values: [70, 40] as [number, number], isDim: false }]
   const props = { tools: [{ id: 'quota', icon: 'q', short: 'q', gauge }], switches: [], isOpen: true }
-  expect(railLayout(props).map(r => r.kind)).toEqual(['button', 'button', 'button', 'button', 'button', 'tab', 'tab', 'tab', 'tab'])
-  for (const y of [5, 6, 7, 8]) expect(targetAt(props, y)).toEqual({ kind: 'tool', id: 'quota' })
+  expect(railLayout(props).map(r => r.kind)).toEqual(['button', 'button', 'button', 'button', 'button', 'gauge', 'gauge', 'gauge', 'gauge', 'gauge'])
+  for (const y of [5, 6, 7, 8, 9]) expect(targetAt(props, y)).toEqual({ kind: 'tool', id: 'quota' })
   expect(GAUGE_COLUMNS_MAX).toBe(3)
 })
 

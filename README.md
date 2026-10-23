@@ -77,7 +77,7 @@ rows the drawer and the pop-out have, and how many columns the drawer's frame ta
 
 ### A gauge
 
-`$.sidebar.gauge({ id, columns })` draws the tool's tab as a bracket of bars, 3 rows tall: up to 3 columns, each a
+`$.sidebar.gauge({ id, columns })` draws the tool's tab as bars in a tab's frame, 3 rows of them: up to 3 columns, each a
 pair of bars (percent left, 0-100, filled from the bottom, red at 10 or below), each in its own color, over its
 letter in the left one's. `isDim`
 draws a column dim with `?` for its letter. `columns: null` draws the icon again. A press on it is a press on the tab.

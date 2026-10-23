@@ -77,8 +77,9 @@ export type Sidebar = {
   register(tool: SidebarTool): Promise<void>
   badge(badge: SidebarBadge): Promise<void>
   /**
-   * Draws the tool's tab as a bracket of bars, 3 rows tall, with each column's letter under its pair. At most 3
-   * columns fit, and values run 0 to 100, else refused; null draws the icon again.
+   * Draws the tool's tab as bars in a tab's frame, 3 rows of bars and 5 rows in all, each column's letter set in
+   * the bottom border under its pair. At most 3 columns fit, and values run 0 to 100, else refused; null draws the
+   * icon again.
    */
   gauge(input: { id: string; columns: SidebarGaugeColumn[] | null }): Promise<void>
   /** Adds the switch, or updates its label and state. */

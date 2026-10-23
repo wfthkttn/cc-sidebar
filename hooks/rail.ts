@@ -27,12 +27,12 @@ const COLORS = {
   switchOnText: '#f0fff6',
   switchOffText: '#9aa1ad',
 }
-const GAUGE_BRACKET = '#6b7280'
 const GAUGE_LOW = '#ef5350'
 /** A bar this low or lower is drawn red. */
 const GAUGE_LOW_FROM = 10
-/** Bracket, then two cells per column, inside the strip. */
-export const GAUGE_COLUMNS_MAX = Math.floor((TAB_COLUMNS - 1) / 2)
+/** Two cells per column inside a tab's frame. */
+export const GAUGE_COLUMNS_MAX = Math.floor(TAB_INNER / 2)
+const GAUGE_BAR_ROWS = 3
 /** Quietest first. */
 const LEVELS: readonly SidebarBadgeLevel[] = ['info', 'attention', 'urgent']
 const LEVEL_COLORS: Record<SidebarBadgeLevel, string> = { info: '#5b9bf0', attention: '#f2b134', urgent: '#ef5350' }
@@ -44,6 +44,8 @@ const BUTTON_PARTS: readonly Part[] = ['top', 'upper', 'middle', 'lower', 'botto
 type RailRow =
   | { kind: 'button'; part: Part }
   | { kind: 'tab'; part: Part; id: string }
+  /** A gauge's row: 0 its top border, then its bar rows, then its bottom border holding the letters. */
+  | { kind: 'gauge'; index: number; id: string }
   | { kind: 'switch'; id: string }
 
 type Target = { kind: 'button' } | { kind: 'tool' | 'switch'; id: string }
@@ -58,7 +60,10 @@ export function inOrder<T extends { order?: number }>(tools: readonly T[]): T[] 
 export function railLayout(props: Shown): RailRow[] {
   const rows: RailRow[] = BUTTON_PARTS.map(part => ({ kind: 'button', part }))
   if (!props.isOpen) return rows
-  for (const tool of props.tools) rows.push(...TAB_PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
+  for (const tool of props.tools) {
+    if (tool.gauge === undefined) rows.push(...TAB_PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
+    else rows.push(...Array.from({ length: GAUGE_BAR_ROWS + 2 }, (_, index) => ({ kind: 'gauge' as const, index, id: tool.id })))
+  }
   for (const sw of props.switches) rows.push({ kind: 'switch', id: sw.id })
   return rows
 }
@@ -166,31 +171,37 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
     }
   }
 
-  /** A gauge takes a tab's rows: bars in all but the last, the letters in that. */
-  const gaugeRow = (columns: SidebarGaugeColumn[], index: number) => {
-    const barRows = TAB_PARTS.length - 1
-    const pad = Text({ children: [' '.repeat(TAB_COLUMNS - 1 - 2 * columns.length)] })
-    if (index === barRows) {
+  /** A gauge is framed as a tab is, its bars inside, each column's letter set in the bottom border under its pair. */
+  const gaugeRow = (id: string, columns: SidebarGaugeColumn[], index: number) => {
+    const edge = tabLook(id).edge
+    const spare = TAB_INNER - 2 * columns.length
+    if (index === 0) return Text({ color: edge, children: ['╭' + '─'.repeat(TAB_INNER) + '╮'] })
+    if (index === GAUGE_BAR_ROWS + 1) {
       return Text({
         children: [
-          Text({ color: GAUGE_BRACKET, children: ['└'] }),
-          ...columns.map(c => Text({ color: c.colors[0], bold: true, dimColor: c.isDim, children: [(c.isDim ? '?' : c.letter) + ' '] })),
-          pad,
+          Text({ color: edge, children: ['╰'] }),
+          ...columns.flatMap(c => [
+            Text({ color: c.colors[0], bold: true, dimColor: c.isDim, children: [c.isDim ? '?' : c.letter] }),
+            Text({ color: edge, children: ['─'] }),
+          ]),
+          Text({ color: edge, children: ['─'.repeat(spare) + '╯'] }),
         ],
       })
     }
+    const row = index - 1
     return Text({
       children: [
-        Text({ color: GAUGE_BRACKET, children: [index === 0 ? '┌' : '│'] }),
+        Text({ color: edge, children: ['│'] }),
         ...columns.flatMap(c =>
           c.values.map((value, bar) => {
             // Nothing left still shows, as a red sliver: blank is for no value.
-            const cells = barCells(value === null ? 0 : Math.max(value, 0.1), barRows)
+            const cells = barCells(value === null ? 0 : Math.max(value, 0.1), GAUGE_BAR_ROWS)
             const color = value !== null && value <= GAUGE_LOW_FROM ? GAUGE_LOW : c.colors[bar]!
-            return Text({ color, dimColor: c.isDim, children: [cells[index]!] })
+            return Text({ color, dimColor: c.isDim, children: [cells[row]!] })
           }),
         ),
-        pad,
+        Text({ children: [' '.repeat(spare)] }),
+        Text({ color: edge, children: ['│'] }),
       ],
     })
   }
@@ -207,13 +218,14 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
       }
       case 'tab': {
         const tool = toolsById.get(row.id)!
-        if (tool.gauge !== undefined) return gaugeRow(tool.gauge, TAB_PARTS.indexOf(row.part))
         const look = tabLook(row.id)
         if (row.part === 'top') return topBorder(look, tool.badge)
         if (row.part === 'bottom') return frame('bottom', look, [rule(look)])
         const isIcon = row.part === 'upper'
         return frame(row.part, look, [Text({ color: look.text, bold: isIcon, children: [isIcon ? tool.icon : tool.short] })])
       }
+      case 'gauge':
+        return gaugeRow(row.id, toolsById.get(row.id)!.gauge!, row.index)
       case 'switch': {
         const sw = switchesById.get(row.id)!
         const isHovered = hover?.kind === 'switch' && hover.id === sw.id

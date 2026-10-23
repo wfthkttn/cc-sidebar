@@ -75,6 +75,13 @@ an empty `Box` keyed `sidebar-drawer:<id>` or `sidebar-popout:<id>`. Fill it in 
 transcript row components (`SidebarRowComponent`), in the tree `next(e)` returns; `$.sidebar.room({})` says how many
 rows the drawer and the pop-out have, and how many columns the drawer's frame takes.
 
+### A corner
+
+Register with `corner: { columns, rows }` and the tool gets an empty `Box` keyed `sidebar-corner:<id>` at the bottom
+right of the transcript, just above the prompt, filled the same way. Nothing in the corner has a background, so the
+transcript shows wherever you draw nothing. With `hasTab: false` the tool gets no tab on the strip and lives in its
+corner and pop-out alone.
+
 ## Things a tool author should know
 
 - The strip, the drawer and the pop-out are drawn over the bottom transcript row on screen, so they move to another

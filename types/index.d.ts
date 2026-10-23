@@ -10,6 +10,10 @@ export type SidebarTool = {
   short: string
   /** The drawer's and pop-out area's width, frame included; an integer of at least 20, else refused. Without one the tool has neither. */
   drawerColumns?: number
+  /** No tab on the strip: the tool shows through its corner and its pop-out alone. */
+  hasTab?: false
+  /** A slot of this size at the bottom right of the transcript, above the prompt, with no background of its own; positive integers, else refused. */
+  corner?: { columns: number; rows: number }
 }
 
 export type SidebarBadge = {
@@ -47,12 +51,14 @@ export type SidebarRowComponent =
 export type SidebarDrawerSlot = `sidebar-drawer:${string}`
 /** The key of the empty Box a tool's shown pop-out area holds. */
 export type SidebarPopoutSlot = `sidebar-popout:${string}`
+/** The key of the empty Box a tool's corner holds. */
+export type SidebarCornerSlot = `sidebar-corner:${string}`
 
 /**
  * `$.sidebar`. A tool hears presses on its tab or switch by hooking `sidebar.press`:
  * `on('sidebar.press', async ($, e, next) => { if (e.element === 'tool:ask') ...; return next(e) })`.
  *
- * A tool with `drawerColumns` fills its slots (SidebarDrawerSlot, SidebarPopoutSlot) in its own
+ * A tool with `drawerColumns` or `corner` fills its slots (SidebarDrawerSlot, SidebarPopoutSlot, SidebarCornerSlot) in its own
  * `ui.render` hook on the SidebarRowComponent rows, from the tree `next(e)` returns; it lists
  * `sidebar` under `dependencies`. A slot takes the height of what fills it; `room` says how much there is.
  */
@@ -97,7 +103,7 @@ export type SidebarRail = {
   selected: string | null
   /** The strip is drawn out (tabs shown) rather than in (only its draw-in button). */
   isOpen: boolean
-  /** `/sidebar` hid it: nothing is drawn but pop-outs. */
+  /** `/sidebar` hid it: nothing is drawn but pop-outs; corners hide too. */
   isHidden?: true
 }
 

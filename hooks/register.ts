@@ -1,6 +1,6 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import type { Sidebar, SidebarDrawerSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
+import type { Sidebar, SidebarCornerSlot, SidebarDrawerSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
 import { RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
 import { ROW_COMPONENTS, Rows, rowKey } from './rows'
@@ -59,6 +59,10 @@ function popoutSlotKey(toolId: string): SidebarPopoutSlot {
   return `sidebar-popout:${toolId}`
 }
 
+function cornerSlotKey(toolId: string): SidebarCornerSlot {
+  return `sidebar-corner:${toolId}`
+}
+
 /** The transcript's rows on screen; null outside fullscreen or before the band first draws. */
 function transcriptRows(): number | null {
   // The bottom slot (band, prompt, footer) is capped at half the terminal; `maxRows` is what the prompt and footer leave of it.
@@ -67,6 +71,10 @@ function transcriptRows(): number | null {
 
 function hasDrawer(tool: SidebarTool): tool is DrawerTool {
   return tool.drawerColumns !== undefined
+}
+
+function hasCorner(tool: SidebarTool): tool is SidebarTool & { corner: { columns: number; rows: number } } {
+  return tool.corner !== undefined
 }
 
 function openDrawer(): DrawerTool | null {
@@ -97,11 +105,21 @@ export function register(on: On) {
     const sidebar: Sidebar = {
       register: async tool => {
         checkShort(`tool "${tool.id}"`, tool.short)
-        const { drawerColumns } = tool
+        const { drawerColumns, hasTab, corner } = tool
         if (drawerColumns !== undefined && (!Number.isInteger(drawerColumns) || drawerColumns < DRAWER_MIN_COLUMNS)) {
           throw new Error(`sidebar: tool "${tool.id}" drawerColumns ${drawerColumns} must be an integer >= ${DRAWER_MIN_COLUMNS}`)
         }
-        const entry = { id: tool.id, icon: tool.icon, short: tool.short, ...(drawerColumns === undefined ? {} : { drawerColumns }) }
+        if (corner !== undefined && ![corner.columns, corner.rows].every(n => Number.isInteger(n) && n > 0)) {
+          throw new Error(`sidebar: tool "${tool.id}" corner ${corner.columns}x${corner.rows} must be positive integers`)
+        }
+        const entry: SidebarTool = {
+          id: tool.id,
+          icon: tool.icon,
+          short: tool.short,
+          ...(drawerColumns === undefined ? {} : { drawerColumns }),
+          ...(hasTab === false ? { hasTab } : {}),
+          ...(corner === undefined ? {} : { corner: { columns: corner.columns, rows: corner.rows } }),
+        }
         await change(now => ({ ...now, tools: upsert(now.tools, entry) }))
       },
       badge: async badge => {
@@ -249,7 +267,7 @@ export function register(on: On) {
 
     const { Box, Button, Client, Text } = $.ui.resolve(e)
     const props: RailProps = {
-      tools: rail.tools.map(({ id, icon, short }) => {
+      tools: rail.tools.filter(t => t.hasTab !== false).map(({ id, icon, short }) => {
         const badge = rail.badges[id]
         return badge ? { id, icon, short, badge: { count: badge.count, level: badge.level } } : { id, icon, short }
       }),
@@ -260,6 +278,9 @@ export function register(on: On) {
     // From the left: a row's own box can be as narrow as its content (a running Bash call's is).
     const stripLeft = e.viewport.columns - RAIL_COLUMNS
     const popoutColumns = Math.max(0, ...popped.map(t => t.drawerColumns))
+    const rows = transcriptRows()
+    const cornered = isHidden || rows === null ? [] : rail.tools.filter(hasCorner)
+    const cornerColumns = Math.max(0, ...cornered.map(t => t.corner.columns))
     return Box({
       flexDirection: 'column',
       children: [
@@ -273,6 +294,24 @@ export function register(on: On) {
                 left: stripLeft,
                 width: RAIL_COLUMNS,
                 children: [Client({ key: 'rail', module: './rail.ts', props, width: RAIL_COLUMNS, height: railLayout(props).length })],
+              }),
+            ]),
+        ...(cornered.length === 0 || rows === null
+          ? []
+          : [
+              // As tall as the transcript with no background, so only what fills the corners paints over it.
+              Box({
+                position: 'absolute',
+                top: VIEWPORT_TOP,
+                left: e.viewport.columns - cornerColumns,
+                width: cornerColumns,
+                height: rows,
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                alignItems: 'flex-end',
+                children: cornered.map(t =>
+                  Box({ key: cornerSlotKey(t.id), width: t.corner.columns, height: t.corner.rows, flexDirection: 'column', children: [] }),
+                ),
               }),
             ]),
         ...(open === null || isHidden ? [] : [drawerFrame(open)]),

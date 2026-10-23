@@ -10,6 +10,11 @@ export type SidebarTool = {
   short: string
   /** The drawer's and pop-out area's width, frame included; an integer of at least 20, else refused. Without one the tool has neither. */
   drawerColumns?: number
+  /**
+   * Where the tab sits: lower first, 0 when absent, ties in the order the tools registered. Mods register from
+   * `session.start` after `next(e)`, so a mod loaded later registers earlier; `order` is what places a tab.
+   */
+  order?: number
 }
 
 /** One column pair of a tool's gauge: two bars, each a percent left, filled from the bottom; red at 10 or below. */

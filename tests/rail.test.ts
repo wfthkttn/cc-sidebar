@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { barCells, buttonBadge, GAUGE_COLUMNS_MAX, railLayout, targetAt } from '../hooks/rail'
+import { barCells, buttonBadge, GAUGE_COLUMNS_MAX, inOrder, railLayout, targetAt } from '../hooks/rail'
 
 const TOOLS = [
   { id: 'pass', icon: '🔐', short: 'pass', badge: { count: 3, level: 'urgent' as const } },
@@ -12,24 +12,28 @@ test('drawn in, the strip is its 5-row button alone', async () => {
   expect(railLayout({ tools: TOOLS, switches: SWITCHES, isOpen: false }).map(r => r.kind)).toEqual(['button', 'button', 'button', 'button', 'button'])
 })
 
-test('drawn out: the button, the first tool tab right under it, a gap before each next, then the switches', async () => {
+test('drawn out: the button, then each tool tab and each switch right under the one before, no gaps', async () => {
   expect(railLayout({ tools: TOOLS, switches: SWITCHES, isOpen: true }).map(r => r.kind)).toEqual([
     'button', 'button', 'button', 'button', 'button',
     'tab', 'tab', 'tab', 'tab',
-    'blank', 'tab', 'tab', 'tab', 'tab',
-    'blank', 'switch',
+    'tab', 'tab', 'tab', 'tab',
+    'switch',
   ])
 })
 
-test('every row of the button and of a tab takes the click; blanks take none', async () => {
+test('every row of the button, a tab and a switch takes the click; past the strip none', async () => {
   const props = { tools: TOOLS, switches: SWITCHES, isOpen: true }
   for (const y of [0, 1, 2, 3, 4]) expect(targetAt(props, y)).toEqual({ kind: 'button' })
   for (const y of [5, 6, 7, 8]) expect(targetAt(props, y)).toEqual({ kind: 'tool', id: 'pass' })
-  expect(targetAt(props, 9)).toBe(null)
-  expect(targetAt(props, 10)).toEqual({ kind: 'tool', id: 'map' })
-  expect(targetAt(props, 15)).toEqual({ kind: 'switch', id: 'diff' })
+  for (const y of [9, 10, 11, 12]) expect(targetAt(props, y)).toEqual({ kind: 'tool', id: 'map' })
+  expect(targetAt(props, 13)).toEqual({ kind: 'switch', id: 'diff' })
   expect(targetAt(props, 40)).toBe(null)
   for (const y of [0, 4]) expect(targetAt({ ...props, isOpen: false }, y)).toEqual({ kind: 'button' })
+})
+
+test('tabs stack by order, ties in registration order', async () => {
+  const tools = [{ id: 'quota', order: 1 }, { id: 'pass' }, { id: 'map' }, { id: 'early', order: -1 }]
+  expect(inOrder(tools).map(t => t.id)).toEqual(['early', 'pass', 'map', 'quota'])
 })
 
 test('gauge bars fill from the bottom in eighths; anything above 0 shows', async () => {

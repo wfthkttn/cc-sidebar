@@ -43,7 +43,6 @@ const BUTTON_PARTS: readonly Part[] = ['top', 'upper', 'middle', 'lower', 'botto
 
 type RailRow =
   | { kind: 'button'; part: Part }
-  | { kind: 'blank' }
   | { kind: 'tab'; part: Part; id: string }
   | { kind: 'switch'; id: string }
 
@@ -51,21 +50,22 @@ type Target = { kind: 'button' } | { kind: 'tool' | 'switch'; id: string }
 
 type Shown = Pick<RailProps, 'tools' | 'switches' | 'isOpen'>
 
+/** The tools as their tabs stack: by `order`, ties as they registered. */
+export function inOrder<T extends { order?: number }>(tools: readonly T[]): T[] {
+  return [...tools].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+}
+
 export function railLayout(props: Shown): RailRow[] {
   const rows: RailRow[] = BUTTON_PARTS.map(part => ({ kind: 'button', part }))
   if (!props.isOpen) return rows
-  props.tools.forEach((tool, index) => {
-    if (index > 0) rows.push({ kind: 'blank' })
-    rows.push(...TAB_PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
-  })
-  if (props.switches.length > 0) rows.push({ kind: 'blank' })
+  for (const tool of props.tools) rows.push(...TAB_PARTS.map(part => ({ kind: 'tab' as const, part, id: tool.id })))
   for (const sw of props.switches) rows.push({ kind: 'switch', id: sw.id })
   return rows
 }
 
 export function targetAt(props: Shown, y: number): Target | null {
   const row = railLayout(props)[y]
-  if (row === undefined || row.kind === 'blank') return null
+  if (row === undefined) return null
   if (row.kind === 'button') return { kind: 'button' }
   if (row.kind === 'switch') return { kind: 'switch', id: row.id }
   return { kind: 'tool', id: row.id }
@@ -197,8 +197,6 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
 
   const rows = railLayout(props).map(row => {
     switch (row.kind) {
-      case 'blank':
-        return Text({ children: [' '.repeat(TAB_COLUMNS)] })
       case 'button': {
         if (row.part === 'top') return topBorder(buttonLook, buttonBadge(props.tools))
         if (row.part === 'bottom') return frame('bottom', buttonLook, [rule(buttonLook)])

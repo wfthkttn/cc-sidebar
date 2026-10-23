@@ -1,7 +1,7 @@
 import type { EngineInterface, On } from 'claude-code'
 
 import type { Sidebar, SidebarDrawerSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
-import { GAUGE_COLUMNS_MAX, RAIL_COLUMNS, railLayout } from './rail'
+import { GAUGE_COLUMNS_MAX, inOrder, RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
 import { ROW_COMPONENTS, Rows, rowKey } from './rows'
 
@@ -97,11 +97,18 @@ export function register(on: On) {
     const sidebar: Sidebar = {
       register: async tool => {
         checkShort(`tool "${tool.id}"`, tool.short)
-        const { drawerColumns } = tool
+        const { drawerColumns, order } = tool
         if (drawerColumns !== undefined && (!Number.isInteger(drawerColumns) || drawerColumns < DRAWER_MIN_COLUMNS)) {
           throw new Error(`sidebar: tool "${tool.id}" drawerColumns ${drawerColumns} must be an integer >= ${DRAWER_MIN_COLUMNS}`)
         }
-        const entry = { id: tool.id, icon: tool.icon, short: tool.short, ...(drawerColumns === undefined ? {} : { drawerColumns }) }
+        if (order !== undefined && !Number.isFinite(order)) throw new Error(`sidebar: tool "${tool.id}" order ${order} must be a number`)
+        const entry = {
+          id: tool.id,
+          icon: tool.icon,
+          short: tool.short,
+          ...(drawerColumns === undefined ? {} : { drawerColumns }),
+          ...(order === undefined ? {} : { order }),
+        }
         await change(now => ({ ...now, tools: upsert(now.tools, entry) }))
       },
       gauge: async ({ id, columns }) => {
@@ -262,7 +269,7 @@ export function register(on: On) {
 
     const { Box, Button, Client, Text } = $.ui.resolve(e)
     const props: RailProps = {
-      tools: rail.tools.map(({ id, icon, short }) => {
+      tools: inOrder(rail.tools).map(({ id, icon, short }) => {
         const badge = rail.badges[id]
         const gauge = rail.gauges?.[id]
         return {

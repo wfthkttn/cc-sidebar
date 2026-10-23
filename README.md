@@ -51,7 +51,7 @@ List `sidebar` under `dependencies` in your plugin's `plugin.json`, and point yo
 ["wfthkttn"]`. Then, from `session.start`:
 
 ```ts
-await $.sidebar.register({ id: 'ask', icon: '❓', short: 'ask' })          // a tab: one glyph, 1-4 characters
+await $.sidebar.register({ id: 'ask', icon: '❓', short: 'ask' })          // a tab: one glyph, 1-4 characters; `order` places it
 await $.sidebar.badge({ id: 'ask', count: 2, level: 'attention' })         // info | attention | urgent; 0 clears
 await $.sidebar.setSwitch({ id: 'diff', short: 'diff', isOn: false })      // drawn as ○ diff / ● diff
 ```

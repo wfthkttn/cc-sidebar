@@ -24,6 +24,9 @@ type DrawerTool = SidebarTool & { drawerColumns: number }
  * or `/branch`; this variable the reverse. Each restores the other.
  */
 let rail: SidebarRail = EMPTY
+const RAIL_KEY = { plugin: 'sidebar', key: 'rail' } as const
+/** The kept rail was read back for this load. */
+let isRestored = false
 const transcript = new Rows()
 /** The row the overlays were last drawn from. */
 let placed: string | null = null
@@ -35,9 +38,18 @@ type Hold = { row: string; tools: ReadonlySet<string> }
 /** The row the overlays stay on while a tool holds them, besides the anchor (`$.sidebar.hold`), and the tools holding. */
 let held: Hold | null = null
 
+/** Reads the kept rail back once per load, before anything changes it. */
+async function restore($: Pick<EngineInterface, 'state'>) {
+  if (isRestored) return
+  isRestored = true
+  const kept = (await $.state.get(RAIL_KEY)).value
+  if (kept !== undefined && rail === EMPTY) rail = kept
+}
+
 async function save($: Pick<EngineInterface, 'state' | 'ui'>, edit: (now: SidebarRail) => SidebarRail) {
+  await restore($)
   rail = edit(rail)
-  await $.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+  await $.state.set(RAIL_KEY, rail)
   $.ui.invalidate('ui.render')
 }
 
@@ -90,8 +102,15 @@ export function register(on: On) {
     const beneath = await next(e)
     // `save` with `beneath` spelled out: the engine refuses next(e)'s value passed as an argument.
     const change = async (edit: (now: SidebarRail) => SidebarRail) => {
+      // A tool can register before this load's `session.start`: the kept rail comes back first, or it is overwritten.
+      // `restore` inlined, since `beneath` can't be passed to it.
+      if (!isRestored) {
+        isRestored = true
+        const kept = (await beneath.state.get(RAIL_KEY)).value
+        if (kept !== undefined && rail === EMPTY) rail = kept
+      }
       rail = edit(rail)
-      await beneath.state.set({ plugin: 'sidebar', key: 'rail' }, rail)
+      await beneath.state.set(RAIL_KEY, rail)
       beneath.ui.invalidate('ui.render')
     }
     const sidebar: Sidebar = {
@@ -190,8 +209,7 @@ export function register(on: On) {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    const kept = (await $.state.get({ plugin: 'sidebar', key: 'rail' })).value
-    if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = kept
+    await restore($)
     await $.command.register({
       name: 'sidebar',
       description: 'Hide the sidebar, or show it again',

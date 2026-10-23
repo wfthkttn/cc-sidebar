@@ -31,3 +31,12 @@ test('a redrawn row keeps the order it was first seen in', async () => {
   rows.see('UserMessage:u', true)
   expect(rows.anchor()).toBe('AssistantMessage:m')
 })
+
+test('a row is on screen as it was last seen', async () => {
+  const rows = new Rows()
+  rows.see('UserMessage:u', true)
+  expect(rows.isOnScreen('UserMessage:u')).toBe(true)
+  rows.see('UserMessage:u', false)
+  expect(rows.isOnScreen('UserMessage:u')).toBe(false)
+  expect(rows.isOnScreen('UserMessage:never')).toBe(false)
+})

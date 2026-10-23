@@ -25,6 +25,10 @@ export class Rows {
     this.rows.clear()
   }
 
+  isOnScreen(key: string): boolean {
+    return this.rows.get(key)?.isOnScreen === true
+  }
+
   /** The bottom row on screen: rows drawn after the overlays' row paint over them. */
   anchor(): string | null {
     let bottom: { key: string; order: number } | null = null

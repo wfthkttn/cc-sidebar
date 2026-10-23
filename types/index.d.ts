@@ -74,6 +74,19 @@ export type Sidebar = {
    * frame takes from `drawerColumns`; null outside fullscreen or before the transcript's height is known.
    */
   room(input: {}): Promise<{ drawer: number; popout: number; drawerFrameColumns: number } | null>
+  /**
+   * `isHeld: true` keeps the overlays drawn on the row they are on now, as well as on the newest row: a `Client` in a
+   * slot that the person gave the keyboard stays the same instance, so the keys stay with it. The newest row's copy
+   * is drawn on top, over the held one; `mirrored` says which is which. A tool already holding keeps its row: to move
+   * the hold to the row on top now, let go and hold again. `false` lets go. A hold also ends when its tool's drawer
+   * closes and it has no pop-out shown, or when the held row leaves the screen.
+   */
+  hold(input: { id: string; isHeld: boolean }): Promise<void>
+  /**
+   * True for the row whose overlays are a copy drawn over a held row's: a tool draws its slot there from its hooks'
+   * state, as a picture of the held instance that has the keys.
+   */
+  mirrored(input: { component: SidebarRowComponent; requestId: string }): Promise<boolean>
 }
 
 /** What the rail shows; the host's own `$.state`. */

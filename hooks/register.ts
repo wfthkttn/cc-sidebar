@@ -31,6 +31,9 @@ let placed: string | null = null
 let band: { rows: number; maxRows: number } | null = null
 /** Tools whose pop-out area is shown; tools say so again after a reload. */
 const popouts = new Set<string>()
+type Hold = { row: string; tools: ReadonlySet<string> }
+/** The row the overlays stay on while a tool holds them, besides the anchor (`$.sidebar.hold`), and the tools holding. */
+let held: Hold | null = null
 
 async function save($: Pick<EngineInterface, 'state' | 'ui'>, edit: (now: SidebarRail) => SidebarRail) {
   rail = edit(rail)
@@ -69,6 +72,12 @@ function hasDrawer(tool: SidebarTool): tool is DrawerTool {
 function openDrawer(): DrawerTool | null {
   const tool = rail.tools.find(t => t.id === rail.selected)
   return tool !== undefined && hasDrawer(tool) ? tool : null
+}
+
+function withoutTool(hold: Hold, id: string): Hold | null {
+  const tools = new Set(hold.tools)
+  tools.delete(id)
+  return tools.size === 0 ? null : { row: hold.row, tools }
 }
 
 /** Tools with a pop-out shown, their drawer closed. */
@@ -135,6 +144,24 @@ export function register(on: On) {
         const rows = transcriptRows()
         return rows === null ? null : { drawer: rows - DRAWER_FRAME_ROWS, popout: rows, drawerFrameColumns: DRAWER_FRAME_COLUMNS }
       },
+      hold: async ({ id, isHeld }) => {
+        if (!rail.tools.some(t => t.id === id)) {
+          throw new Error(`sidebar: hold for unregistered tool "${id}"`)
+        }
+        const at = transcript.anchor()
+        let now = held
+        // With no row on screen nothing is drawn, so there is nothing to keep.
+        if (isHeld && at !== null && held?.tools.has(id) !== true) now = { row: at, tools: new Set([...(held?.tools ?? []), id]) }
+        else if (!isHeld && held !== null) now = withoutTool(held, id)
+        if (now !== held) {
+          held = now
+          beneath.ui.invalidate('ui.render')
+        }
+      },
+      mirrored: async ({ component, requestId }) => {
+        const at = transcript.anchor()
+        return held !== null && held.row !== at && rowKey(component, requestId) === at
+      },
     }
     return { ...beneath, sidebar }
   })
@@ -154,6 +181,7 @@ export function register(on: On) {
   on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
     await save($, now => now)
     transcript.clear()
+    held = null
     return next(e)
   })
 
@@ -197,7 +225,20 @@ export function register(on: On) {
       placed = at
       $.ui.invalidate('ui.render')
     }
-    if (at !== key || e.viewport === undefined) return engine
+    if (held !== null) {
+      let kept: Hold | null = held
+      for (const id of held.tools) {
+        if (kept !== null && rail.selected !== id && !popouts.has(id)) kept = withoutTool(kept, id)
+      }
+      if (kept !== null && !transcript.isOnScreen(kept.row)) kept = null
+      if (kept !== held) {
+        held = kept
+        $.ui.invalidate('ui.render')
+      }
+    }
+    // The held row draws exactly what the anchor does, the rail too, so its slots' instances outlive a move of the hold.
+    const isHeldRow = held !== null && held.row === key
+    if ((at !== key && !isHeldRow) || e.viewport === undefined) return engine
     const open = openDrawer()
     const popped = poppedOut()
 

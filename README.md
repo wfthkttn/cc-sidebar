@@ -78,8 +78,11 @@ rows the drawer and the pop-out have, and how many columns the drawer's frame ta
 
 - The strip, the drawer and the pop-out are drawn over the bottom transcript row on screen, so they move to another
   row's tree whenever a new row appears. A `Client` drawn in a slot is then a new instance with its local state gone:
-  keep any state that must survive (focus, an open form, a selection) in your hooks module and hand it back through
-  props.
+  keep any state that must survive (an open form, a selection) in your hooks module and hand it back through
+  props. The keyboard can't be handed back: while the person types into a slot, call `$.sidebar.hold({ id, isHeld:
+  true })`, and the overlays stay on that row too, the instance and its keys with them, while the newest row draws a
+  copy on top. Draw the copy (`$.sidebar.mirrored`) from your hooks' state; when the copy gets a click, let go and
+  hold again to move the hold to its row. Let go (`isHeld: false`) once a key reaches the prompt.
 - The overlays are placed with a renderer behaviour the mod typings don't promise (a box placed far above the screen
   lands on the transcript's top row in fullscreen). A Claude Code update can move them.
 - `room` is null outside fullscreen and before the transcript's height is known; draw nothing then.

@@ -225,7 +225,7 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
         if (row.part === 'top') return topBorder(look, tool.badge)
         if (row.part === 'bottom') return frame('bottom', look, [rule(look)])
         const isIcon = row.part === 'upper'
-        return frame(row.part, look, [Text({ color: look.text, bold: isIcon, children: [isIcon ? tool.icon : tool.short] })])
+        return frame(row.part, look, [Text({ color: look.text, bold: true, children: [isIcon ? tool.icon : tool.short.toUpperCase()] })])
       }
       case 'gauge':
         return gaugeRow(row.id, toolsById.get(row.id)!.gauge!, row.index)

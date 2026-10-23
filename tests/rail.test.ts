@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { barCells, buttonBadge, GAUGE_COLUMNS_MAX, inOrder, railLayout, targetAt } from '../hooks/rail'
+import { barCells, buttonBadge, fullWidth, GAUGE_COLUMNS_MAX, inOrder, railLayout, targetAt } from '../hooks/rail'
 
 const TOOLS = [
   { id: 'pass', icon: '🔐', short: 'pass', badge: { count: 3, level: 'urgent' as const } },
@@ -29,6 +29,11 @@ test('every row of the button, a tab and a switch takes the click; past the stri
   expect(targetAt(props, 13)).toEqual({ kind: 'switch', id: 'diff' })
   expect(targetAt(props, 40)).toBe(null)
   for (const y of [0, 4]) expect(targetAt({ ...props, isOpen: false }, y)).toEqual({ kind: 'button' })
+})
+
+test("a gauge's letters go full-width, two cells each, so each spans its pair of bars", async () => {
+  expect(['C', 'O', 'G', '?'].map(fullWidth).join('')).toBe('ＣＯＧ？')
+  expect(fullWidth('◔')).toBe('◔')
 })
 
 test('tabs stack by order, ties in registration order', async () => {

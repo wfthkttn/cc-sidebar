@@ -282,8 +282,9 @@ export function register(on: On) {
     // The held row draws exactly what the anchor does, the rail too, so its slots' instances outlive a move of the hold.
     const isHeldRow = held !== null && held.row === key
     if ((at !== key && !isHeldRow) || e.viewport === undefined) return engine
-    const open = openDrawer()
-    const popped = poppedOut()
+    // Drawn in, the strip keeps its drawer and pop-outs out of sight; drawn out again, they are back as they were.
+    const open = rail.isOpen ? openDrawer() : null
+    const popped = rail.isOpen ? poppedOut() : []
 
     const { Box, Button, Client, Text } = $.ui.resolve(e)
     const props: RailProps = {

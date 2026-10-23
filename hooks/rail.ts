@@ -95,6 +95,12 @@ export function barCells(percent: number, rows: number): string[] {
   return Array.from({ length: rows }, (_, i) => EIGHTHS[Math.max(0, Math.min(8, level - (rows - 1 - i) * 8))]!)
 }
 
+/** The full-width form of a printable ASCII character, two cells wide: it spans a gauge column's pair of bars. */
+export function fullWidth(ch: string): string {
+  const code = ch.codePointAt(0)!
+  return code >= 0x21 && code <= 0x7e ? String.fromCodePoint(code + 0xfee0) : ch
+}
+
 function countText(count: number): string {
   return count > 99 ? '99+' : String(count)
 }
@@ -171,7 +177,7 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
     }
   }
 
-  /** A gauge is framed as a tab is, its bars inside, each column's letter set in the bottom border under its pair. */
+  /** A gauge is framed as a tab is, its bars inside, each column's letter set full-width in the bottom border under its pair. */
   const gaugeRow = (id: string, columns: SidebarGaugeColumn[], index: number) => {
     const edge = tabLook(id).edge
     const spare = TAB_INNER - 2 * columns.length
@@ -180,10 +186,7 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
       return Text({
         children: [
           Text({ color: edge, children: ['╰'] }),
-          ...columns.flatMap(c => [
-            Text({ color: c.colors[0], bold: true, dimColor: c.isDim, children: [c.isDim ? '?' : c.letter] }),
-            Text({ color: edge, children: ['─'] }),
-          ]),
+          ...columns.map(c => Text({ color: c.colors[0], bold: true, dimColor: c.isDim, children: [fullWidth(c.isDim ? '?' : c.letter)] })),
           Text({ color: edge, children: ['─'.repeat(spare) + '╯'] }),
         ],
       })

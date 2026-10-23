@@ -40,7 +40,8 @@ environment.pathsToLink = [ "/share/sidebar" ];
 
 and the directory to list is `/run/current-system/sw/share/sidebar/claude-code`.
 
-`/sidebar` draws the strip out again after you've drawn it in.
+`/sidebar` hides the sidebar, strip and drawer, until you run it again; a tool's pop-out still shows while it's
+hidden.
 
 ## Put a tool on it
 

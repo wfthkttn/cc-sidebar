@@ -173,7 +173,7 @@ export function register(on: On) {
     if (kept !== undefined && rail.tools.length === 0 && rail.switches.length === 0) rail = kept
     await $.command.register({
       name: 'sidebar',
-      description: 'Draw the sidebar out',
+      description: 'Hide the sidebar, or show it again',
       immediate: true,
     })
     return started
@@ -187,7 +187,7 @@ export function register(on: On) {
   })
 
   on('command.run', { command: 'sidebar' }, async $ => {
-    await save($, now => ({ ...now, isOpen: true }))
+    await save($, ({ isHidden, ...now }) => (isHidden === true ? { ...now, isOpen: true } : { ...now, isHidden: true }))
     return {}
   })
 
@@ -221,6 +221,8 @@ export function register(on: On) {
     if (e.surface !== 'terminal' || e.props.onScreen === undefined || e.requestId === 'placeholder') return engine
     const key = rowKey(e.component, e.requestId)
     transcript.see(key, e.props.onScreen !== null)
+    const isHidden = rail.isHidden === true
+    if (isHidden && poppedOut().length === 0) return engine
     const at = transcriptRows() === null ? null : transcript.anchor()
     if (at !== placed) {
       $.ui.log(`trace anchor ${placed} -> ${at}`, { to: 'debug' })
@@ -262,21 +264,25 @@ export function register(on: On) {
       flexDirection: 'column',
       children: [
         engine,
-        Box({
-          position: 'absolute',
-          top: VIEWPORT_TOP,
-          left: stripLeft,
-          width: RAIL_COLUMNS,
-          children: [Client({ key: 'rail', module: './rail.ts', props, width: RAIL_COLUMNS, height: railLayout(props).length })],
-        }),
-        ...(open === null ? [] : [drawerFrame(open)]),
+        ...(isHidden
+          ? []
+          : [
+              Box({
+                position: 'absolute',
+                top: VIEWPORT_TOP,
+                left: stripLeft,
+                width: RAIL_COLUMNS,
+                children: [Client({ key: 'rail', module: './rail.ts', props, width: RAIL_COLUMNS, height: railLayout(props).length })],
+              }),
+            ]),
+        ...(open === null || isHidden ? [] : [drawerFrame(open)]),
         ...(popped.length === 0
           ? []
           : [
               Box({
                 position: 'absolute',
                 top: VIEWPORT_TOP,
-                left: stripLeft - popoutColumns,
+                left: (isHidden ? e.viewport.columns : stripLeft) - popoutColumns,
                 width: popoutColumns,
                 flexDirection: 'column',
                 alignItems: 'flex-end',

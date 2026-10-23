@@ -97,6 +97,8 @@ export type SidebarRail = {
   selected: string | null
   /** The strip is drawn out (tabs shown) rather than in (only its draw-in button). */
   isOpen: boolean
+  /** `/sidebar` hid it: nothing is drawn but pop-outs. */
+  isHidden?: true
 }
 
 declare module 'claude-code' {

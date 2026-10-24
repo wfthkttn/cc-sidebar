@@ -87,8 +87,17 @@ export function buttonBadge(tools: RailProps['tools']): RailBadge | undefined {
 }
 
 const EIGHTHS = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
-/** By the left half's and the right half's fill of a cell: 0 none, 1 its lower half, 2 all of it. */
-const QUADRANTS: Record<string, string> = { '00': ' ', '10': '▖', '01': '▗', '11': '▄', '20': '▌', '02': '▐', '22': '█', '21': '▙', '12': '▟' }
+/**
+ * By the left half's fill of a cell, then the right half's, in quarters from the bottom: octants (Unicode 16) where
+ * the pattern has no older character.
+ */
+const HALVES: readonly (readonly string[])[] = [
+  [' ', '\u{1CEA0}', '▗', '\u{1CD96}', '▐'],
+  ['\u{1CEA3}', '▂', '\u{1CDCB}', '\u{1CDD3}', '\u{1CDD5}'],
+  ['▖', '\u{1CDBB}', '▄', '\u{1CDE1}', '▟'],
+  ['\u{1CD48}', '\u{1CDBF}', '\u{1CDDE}', '▆', '\u{1CDE5}'],
+  ['▌', '\u{1CDC0}', '▙', '\u{1CDE4}', '█'],
+]
 
 /** The fill of each of `rows` cells, top cell first, in `perRow` steps a cell; 0 is empty, anything above shows a step. */
 function fills(percent: number, rows: number, perRow: number): number[] {
@@ -102,10 +111,10 @@ export function barCells(percent: number, rows: number): string[] {
   return fills(percent, rows, 8).map(f => EIGHTHS[f]!)
 }
 
-/** Two half-width bars sharing cells, filled from the bottom in half cells, top cell first. */
+/** Two half-width bars sharing cells, filled from the bottom in quarter cells, top cell first. */
 export function splitCells(left: number, right: number, rows: number): string[] {
-  const rights = fills(right, rows, 2)
-  return fills(left, rows, 2).map((l, i) => QUADRANTS[`${l}${rights[i]}`]!)
+  const rights = fills(right, rows, 4)
+  return fills(left, rows, 4).map((l, i) => HALVES[l]![rights[i]!]!)
 }
 
 /** The full-width form of a printable ASCII character, two cells wide: it spans a gauge column's pair of bars. */

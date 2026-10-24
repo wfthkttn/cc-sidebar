@@ -49,10 +49,11 @@ test('gauge bars fill from the bottom in eighths; anything above 0 shows', async
   expect(barCells(100, 3)).toEqual(['█', '█', '█'])
 })
 
-test('a split bar fills its two halves from the bottom in half cells; anything above 0 shows', async () => {
+test('a split bar fills its two halves from the bottom in quarter cells; anything above 0 shows', async () => {
   expect(splitCells(100, 50, 3)).toEqual(['▌', '▙', '█'])
   expect(splitCells(30, 70, 3)).toEqual([' ', '▐', '█'])
-  expect(splitCells(0.1, 0, 3)).toEqual([' ', ' ', '▖'])
+  expect(splitCells(50, 25, 3)).toEqual([' ', '▖', '\u{1CDE4}'])
+  expect(splitCells(0.1, 0, 3)).toEqual([' ', ' ', '\u{1CEA3}'])
   expect(splitCells(0, 0, 3)).toEqual([' ', ' ', ' '])
   expect(splitCells(20, 100, 3)).toEqual(['▐', '▐', '▟'])
 })

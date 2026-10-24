@@ -18,7 +18,7 @@ const tool = {
       return { text: '' }
     })
     on('command.run', { command: 'tool-rail' }, async ($: any) => {
-      return { text: JSON.stringify((await $.state.get({ plugin: 'sidebar', key: 'rail' })).value) }
+      return { text: JSON.stringify((await $.state.get({ plugin: 'cc-sidebar', key: 'rail' })).value) }
     })
   },
 }
@@ -28,10 +28,10 @@ test("a tool registering before this load's session start keeps the tabs an earl
   let isWritten = false
   // what an earlier load of the sidebar kept, until this load writes its own
   on('state.get', ($$: unknown, e: { plugin: string; key: string }, next: (e: unknown) => unknown) =>
-    e.plugin === 'sidebar' && e.key === 'rail' && !isWritten ? { value: { value: KEPT } } : next(e),
+    e.plugin === 'cc-sidebar' && e.key === 'rail' && !isWritten ? { value: { value: KEPT } } : next(e),
   )
   on('state.set', ($$: unknown, e: { plugin: string; key: string }, next: (e: unknown) => unknown) => {
-    if (e.plugin === 'sidebar' && e.key === 'rail') isWritten = true
+    if (e.plugin === 'cc-sidebar' && e.key === 'rail') isWritten = true
     return next(e)
   })
   const run = (command: string) => ($ as any).command.run({ command, args: '' })

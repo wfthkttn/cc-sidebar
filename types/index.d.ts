@@ -148,7 +148,7 @@ declare module 'claude-code' {
     sidebar: Sidebar
   }
   interface PluginState {
-    sidebar: {
+    'cc-sidebar': {
       rail: SidebarRail
     }
   }

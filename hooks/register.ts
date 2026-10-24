@@ -30,7 +30,7 @@ type DrawerTool = SidebarTool & { drawerColumns: number }
  * or `/branch`; this variable the reverse. Each restores the other.
  */
 let rail: SidebarRail = EMPTY
-const RAIL_KEY = { plugin: 'sidebar', key: 'rail' } as const
+const RAIL_KEY = { plugin: 'cc-sidebar', key: 'rail' } as const
 /** The kept rail was read back for this load. */
 let isRestored = false
 const transcript = new Rows()

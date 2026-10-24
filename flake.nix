@@ -1,5 +1,5 @@
 {
-  description = "sidebar: an always-on Claude Code sidebar of tool icons with badges and drawers";
+  description = "cc-sidebar: an always-on Claude Code sidebar of tool icons with badges and drawers";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
@@ -8,17 +8,17 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
     in {
-      # the plugin directory alone, at share/sidebar/claude-code: Claude Code loads the .ts as is.
+      # the plugin directory alone, at share/cc-sidebar/claude-code: Claude Code loads the .ts as is.
       # One level down, so a system profile links the plugin as one directory: Claude Code refuses
       # hooks that resolve outside the plugin directory, as per-file links into the store do.
       packages.${system}.default = pkgs.stdenvNoCC.mkDerivation {
-        pname = "sidebar";
+        pname = "cc-sidebar";
         version = "0.1.0";
         src = self;
         dontBuild = true;
         installPhase = ''
-          mkdir -p $out/share/sidebar/claude-code
-          cp -r .claude-plugin hooks types $out/share/sidebar/claude-code/
+          mkdir -p $out/share/cc-sidebar/claude-code
+          cp -r .claude-plugin hooks types $out/share/cc-sidebar/claude-code/
         '';
       };
     };

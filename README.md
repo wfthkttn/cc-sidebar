@@ -1,4 +1,4 @@
-# sidebar
+# cc-sidebar
 
 An always-on sidebar for Claude Code that other plugins put their tools on: a strip of tool icons with badges down
 the right edge of the transcript, on/off switches under them, and for a tool that wants one, a drawer it fills with
@@ -6,7 +6,7 @@ its own panel and a pop-out area for things that can't wait.
 
 ![examples/demo-tool on the strip: badges, a switch clicked on, a badge raised](docs/demo.gif)
 
-It's a Claude Code mod with no tools of its own. [secrets](https://github.com/wfthkttn/claude-secrets) is built on it.
+It's a Claude Code mod with no tools of its own. [cc-secrets](https://github.com/wfthkttn/cc-secrets) is built on it.
 
 Provided as is.
 
@@ -21,33 +21,33 @@ Provided as is.
 This repository is also a marketplace, `wfthkttn`, that lists the sidebar:
 
 ```
-/plugin install sidebar --marketplace wfthkttn/sidebar
+/plugin install cc-sidebar --marketplace wfthkttn/cc-sidebar
 ```
 
 Or load it from a directory: the plugin is this repository's root. Clone it and list the clone in
 `~/.claude/settings.json`:
 
 ```json
-"env": { "CLAUDE_CODE_PLUGIN_DIRS": "/path/to/sidebar" }
+"env": { "CLAUDE_CODE_PLUGIN_DIRS": "/path/to/cc-sidebar" }
 ```
 
-On NixOS, the flake's package puts it at `share/sidebar/claude-code`:
+On NixOS, the flake's package puts it at `share/cc-sidebar/claude-code`:
 
 ```nix
-environment.systemPackages = [ inputs.sidebar.packages.x86_64-linux.default ];
-environment.pathsToLink = [ "/share/sidebar" ];
+environment.systemPackages = [ inputs.cc-sidebar.packages.x86_64-linux.default ];
+environment.pathsToLink = [ "/share/cc-sidebar" ];
 ```
 
-and the directory to list is `/run/current-system/sw/share/sidebar/claude-code`.
+and the directory to list is `/run/current-system/sw/share/cc-sidebar/claude-code`.
 
 `/sidebar` hides the sidebar, strip, drawer and pop-outs, until you run it again, which brings them back as they
 were.
 
 ## Put a tool on it
 
-List `sidebar` under `dependencies` in your plugin's `plugin.json`, and point your `tsconfig.json` at its types
+List `cc-sidebar` under `dependencies` in your plugin's `plugin.json`, and point your `tsconfig.json` at its types
 (`types/index.d.ts`) to get `$.sidebar` typed. From a plugin in another marketplace, the dependency is
-`sidebar@wfthkttn`, and that marketplace's `marketplace.json` needs `"allowCrossMarketplaceDependenciesOn":
+`cc-sidebar@wfthkttn`, and that marketplace's `marketplace.json` needs `"allowCrossMarketplaceDependenciesOn":
 ["wfthkttn"]`. Then, from `session.start`:
 
 ```ts

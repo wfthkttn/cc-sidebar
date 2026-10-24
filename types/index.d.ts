@@ -24,10 +24,16 @@ export type SidebarGaugeColumn = {
   /** The left and right bar's colors, as Text's `color` takes them; the letter takes the left one. */
   colors: [string, string]
   /** The left and right bar; null leaves one empty. */
-  values: [number | null, number | null]
+  values: [SidebarGaugeCell, SidebarGaugeCell]
   /** Drawn dim with `?` for the letter: the values are old or missing. */
   isDim: boolean
 }
+
+/**
+ * One bar's percent left, or a pair: two half-width bars side by side in the one cell, both in its color, in 6 steps
+ * of height instead of 24, red when either is at 10 or below.
+ */
+export type SidebarGaugeCell = number | null | [number | null, number | null]
 
 export type SidebarBadge = {
   id: string

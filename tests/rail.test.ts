@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { barCells, buttonBadge, fullWidth, GAUGE_COLUMNS_MAX, inOrder, railLayout, targetAt } from '../hooks/rail'
+import { barCells, buttonBadge, fullWidth, GAUGE_COLUMNS_MAX, inOrder, railLayout, splitCells, targetAt } from '../hooks/rail'
 
 const TOOLS = [
   { id: 'pass', icon: '🔐', short: 'pass', badge: { count: 3, level: 'urgent' as const } },
@@ -47,6 +47,14 @@ test('gauge bars fill from the bottom in eighths; anything above 0 shows', async
   expect(barCells(0, 3)).toEqual([' ', ' ', ' '])
   expect(barCells(0.1, 3)).toEqual([' ', ' ', '▁'])
   expect(barCells(100, 3)).toEqual(['█', '█', '█'])
+})
+
+test('a split bar fills its two halves from the bottom in half cells; anything above 0 shows', async () => {
+  expect(splitCells(100, 50, 3)).toEqual(['▌', '▙', '█'])
+  expect(splitCells(30, 70, 3)).toEqual([' ', '▐', '█'])
+  expect(splitCells(0.1, 0, 3)).toEqual([' ', ' ', '▖'])
+  expect(splitCells(0, 0, 3)).toEqual([' ', ' ', ' '])
+  expect(splitCells(20, 100, 3)).toEqual(['▐', '▐', '▟'])
 })
 
 test('a gauge is a framed tab of 5 rows, its 3 bar rows inside, and a click on it is a click on the tab; 3 columns fit', async () => {

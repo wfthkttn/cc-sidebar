@@ -87,12 +87,25 @@ export function buttonBadge(tools: RailProps['tools']): RailBadge | undefined {
 }
 
 const EIGHTHS = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+/** By the left half's and the right half's fill of a cell: 0 none, 1 its lower half, 2 all of it. */
+const QUADRANTS: Record<string, string> = { '00': ' ', '10': '▖', '01': '▗', '11': '▄', '20': '▌', '02': '▐', '22': '█', '21': '▙', '12': '▟' }
+
+/** The fill of each of `rows` cells, top cell first, in `perRow` steps a cell; 0 is empty, anything above shows a step. */
+function fills(percent: number, rows: number, perRow: number): number[] {
+  const steps = rows * perRow
+  const level = percent <= 0 ? 0 : Math.max(1, Math.min(steps, Math.round((percent / 100) * steps)))
+  return Array.from({ length: rows }, (_, i) => Math.max(0, Math.min(perRow, level - (rows - 1 - i) * perRow)))
+}
 
 /** A bar `rows` cells tall filled from the bottom, top cell first; 0 is blank, anything above shows at least an eighth. */
 export function barCells(percent: number, rows: number): string[] {
-  const steps = rows * 8
-  const level = percent <= 0 ? 0 : Math.max(1, Math.min(steps, Math.round((percent / 100) * steps)))
-  return Array.from({ length: rows }, (_, i) => EIGHTHS[Math.max(0, Math.min(8, level - (rows - 1 - i) * 8))]!)
+  return fills(percent, rows, 8).map(f => EIGHTHS[f]!)
+}
+
+/** Two half-width bars sharing cells, filled from the bottom in half cells, top cell first. */
+export function splitCells(left: number, right: number, rows: number): string[] {
+  const rights = fills(right, rows, 2)
+  return fills(left, rows, 2).map((l, i) => QUADRANTS[`${l}${rights[i]}`]!)
 }
 
 /** The full-width form of a printable ASCII character, two cells wide: it spans a gauge column's pair of bars. */
@@ -198,8 +211,10 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
         ...columns.flatMap(c =>
           c.values.map((value, bar) => {
             // Nothing left still shows, as a red sliver: blank is for no value.
-            const cells = barCells(value === null ? 0 : Math.max(value, 0.1), GAUGE_BAR_ROWS)
-            const color = value !== null && value <= GAUGE_LOW_FROM ? GAUGE_LOW : c.colors[bar]!
+            const shown = (v: number | null) => (v === null ? 0 : Math.max(v, 0.1))
+            const cells = Array.isArray(value) ? splitCells(shown(value[0]), shown(value[1]), GAUGE_BAR_ROWS) : barCells(shown(value), GAUGE_BAR_ROWS)
+            const isLow = [value].flat().some(v => v !== null && v <= GAUGE_LOW_FROM)
+            const color = isLow ? GAUGE_LOW : c.colors[bar]!
             return Text({ color, dimColor: c.isDim, children: [cells[row]!] })
           }),
         ),

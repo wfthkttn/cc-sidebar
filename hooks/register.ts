@@ -1,6 +1,6 @@
 import type { EngineInterface, On } from 'claude-code'
 
-import type { Sidebar, SidebarDrawerSlot, SidebarModalSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
+import type { Sidebar, SidebarDrawerSlot, SidebarGaugeCell, SidebarModalSlot, SidebarPopoutSlot, SidebarRail, SidebarTool } from '../types/index'
 import { GAUGE_COLUMNS_MAX, inOrder, RAIL_COLUMNS, railLayout } from './rail'
 import type { RailMessage, RailProps } from './rail-props'
 import { ROW_COMPONENTS, Rows, rowKey } from './rows'
@@ -151,13 +151,16 @@ export function register(on: On) {
         if (!rail.tools.some(t => t.id === id)) throw new Error(`sidebar: gauge for unregistered tool "${id}"`)
         if (columns !== null) {
           if (columns.length > GAUGE_COLUMNS_MAX) throw new Error(`sidebar: gauge for "${id}" has ${columns.length} columns, at most ${GAUGE_COLUMNS_MAX} fit`)
-          const bad = columns.flatMap(c => c.values).find(v => v !== null && !(v >= 0 && v <= 100))
+          const pair = columns.flatMap(c => c.values).find(v => Array.isArray(v) && v.length !== 2)
+          if (pair !== undefined) throw new Error(`sidebar: gauge for "${id}" splits a bar into ${(pair as unknown[]).length}, only into 2`)
+          const bad = columns.flatMap(c => c.values.flat()).find(v => v !== null && !(v >= 0 && v <= 100))
           if (bad !== undefined) throw new Error(`sidebar: gauge for "${id}" has the value ${bad}, outside 0-100`)
         }
+        const cell = (v: SidebarGaugeCell): SidebarGaugeCell => (Array.isArray(v) ? [v[0], v[1]] : v)
         await change(now => {
           const gauges = { ...now.gauges }
           if (columns === null) delete gauges[id]
-          else gauges[id] = columns.map(c => ({ letter: c.letter, colors: [c.colors[0], c.colors[1]], values: [c.values[0], c.values[1]], isDim: c.isDim }))
+          else gauges[id] = columns.map(c => ({ letter: c.letter, colors: [c.colors[0], c.colors[1]], values: [cell(c.values[0]), cell(c.values[1])], isDim: c.isDim }))
           return { ...now, gauges }
         })
       },

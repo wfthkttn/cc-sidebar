@@ -300,9 +300,8 @@ export function register(on: On) {
       for (const id of held.tools) {
         if (kept !== null && rail.selected !== id && !popouts.has(id) && modal !== id) kept = withoutTool(kept, id)
       }
-      if (kept !== null && !transcript.isOnScreen(kept.row)) kept = null
       if (kept !== held) {
-        $.ui.log(`trace hold dropped on ${held.row}: ${kept === null ? 'drawer closed or row off screen' : 'a tool closed'}`, { to: 'debug' })
+        $.ui.log(`trace hold dropped on ${held.row}: ${kept === null ? 'drawer closed' : 'a tool closed'}`, { to: 'debug' })
         held = kept
         $.ui.invalidate('ui.render')
       }

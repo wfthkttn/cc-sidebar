@@ -113,7 +113,7 @@ export type Sidebar = {
    * slot that the person gave the keyboard stays the same instance, so the keys stay with it. The newest row's copy
    * is drawn on top, over the held one; `mirrored` says which is which. A tool already holding keeps its row: to move
    * the hold to the row on top now, let go and hold again. `false` lets go. A hold also ends when its tool's drawer
-   * closes and it has no pop-out shown, or when the held row leaves the screen.
+   * closes and it has no pop-out shown; the held row scrolling off screen does not end it.
    */
   hold(input: { id: string; isHeld: boolean }): Promise<void>
   /**

@@ -18,11 +18,13 @@ Provided as is.
 
 ## Install
 
-This repository is also a marketplace, `wfthkttn`, that lists the sidebar:
+From the marketplace `wfthkttn` ([cc-mods](https://github.com/wfthkttn/cc-mods)), at a Claude Code prompt:
 
 ```
-/plugin install cc-sidebar --marketplace wfthkttn/cc-sidebar
+/plugin install cc-sidebar --marketplace wfthkttn/cc-mods
 ```
+
+Answer `y` to add the marketplace, then pick a scope.
 
 Or load it from a directory: the plugin is this repository's root. Clone it and list the clone in
 `~/.claude/settings.json`:

@@ -203,7 +203,7 @@ const Rail: ClientModule<RailProps, State> = (props, surface) => {
   const gaugeRow = (id: string, columns: SidebarGaugeColumn[], index: number) => {
     const edge = tabLook(id).edge
     const spare = TAB_INNER - 2 * columns.length
-    if (index === 0) return Text({ color: edge, children: ['╭' + '─'.repeat(TAB_INNER) + '╮'] })
+    if (index === 0) return topBorder(tabLook(id), toolsById.get(id)!.badge)
     if (index === GAUGE_BAR_ROWS + 1) {
       return Text({
         children: [
